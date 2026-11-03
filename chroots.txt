@@ -1,0 +1,57 @@
+# Copr chroot adları — copr-cli ile derlemelerin hedeflediği dağıtım/mimari çiftleri.
+# Güncel ve kesin liste için:  copr-cli list-chroots
+# Satır başındaki '#' yorum satırıdır; boş satırlar yok sayılır.
+# Copr projenizde etkin olmayan bir chroot verilirse build uyarı verir, akış durmaz
+# (yine de listeyi kendi projenizle eşitlemeniz önerilir).
+
+# --- Fedora ---
+fedora-44-x86_64
+fedora-44-aarch64
+fedora-45-x86_64
+fedora-45-aarch64
+fedora-rawhide-x86_64
+fedora-rawhide-aarch64
+fedora-eln-x86_64
+fedora-eln-aarch64
+
+# --- EPEL (RHEL ve klonları) ---
+epel-9-x86_64
+epel-9-aarch64
+epel-10-x86_64
+epel-10-aarch64
+
+# --- AlmaLinux ---
+# Not: Alma 10 için x86_64_v2 tabanı Copr'da x86_64 chroot'uyla temsil edilir.
+almalinux-9-x86_64
+almalinux-9-aarch64
+almalinux-10-x86_64
+almalinux-10-aarch64
+# Alma + EPEL birleşik chroot adları Copr sürümüne göre değişebilir;
+# doğrulamak için: copr-cli list-chroots | grep -i alma
+almalinux+epel-9-x86_64
+almalinux+epel-9-aarch64
+almalinux+epel-10-x86_64
+almalinux-kitten-10-x86_64
+almalinux-kitten-10-aarch64
+almalinux-kitten+epel-10-x86_64
+almalinux-kitten+epel-10-aarch64
+
+# --- CentOS Stream ---
+centos-stream-9-x86_64
+centos-stream-9-aarch64
+centos-stream+epel-next-9-x86_64
+centos-stream+epel-next-9-aarch64
+
+# --- openSUSE ---
+opensuse-tumbleweed-x86_64
+opensuse-tumbleweed-aarch64
+opensuse-leap-16.0-x86_64
+opensuse-leap-16.0-aarch64
+
+# --- Mageia ---
+mageia-10-x86_64
+mageia-10-aarch64
+
+# --- openEuler (Copr desteği sınırlı olabilir; doğrulayın) ---
+# openeuler-24.03-x86_64
+# openeuler-24.03-aarch64

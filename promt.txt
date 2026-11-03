@@ -1,0 +1,381 @@
+Copr depoları için FreeCAD  rpm paketleme otomatize edilmiş github deposu projesi
+
+FreeCAD github'da sadece .Appimage paketi yayınlıyor.
+hem aarch64 hem de x86_64 için .Appimage yayınlıyorlar.
+
+github releaseste yatınladıkları dosya isimleri şunlar:
+
+stable sürümlerin appimage dosya adları: "FreeCAD_<X.Y.Z>-Linux-x86_64*.AppImage" "FreeCAD_<X.Y.Z>-Linux-aarch64*.AppImage"
+`*` ibaresi hiçbir karakter olmayabilir de ; `-` ibaresinden sonra herhangi yazılarla da devam edebilir de. 
+"FreeCAD_<X.Y.Z>-Linux-x86_64.AppImage" "FreeCAD_<X.Y.Z>-Linux-aarch64.AppImage" de olabilir; 
+"FreeCAD_<X.Y.Z>-Linux-x86_64-py<xyz>.AppImage" "FreeCAD_<X.Y.Z>-Linux-aarch64-py<xyz>.AppImage" de olabilir.
+py<xyz> python sürümü yazılışıdır. örneğin: py311
+X , Y ve Z herhangi birer rakamdır, versiyon kodudur. 
+örneğin:
+FreeCAD_1.1.4-Linux-aarch64.AppImage
+FreeCAD_1.1.4-Linux-x86_64.AppImage
+FreeCAD_1.1.4-Linux-aarch64-py311.AppImage
+FreeCAD_1.1.4-Linux-x86_64-py311.AppImage
+
+
+Pre-release Candidate sürümlerin appimage dosya adları: "FreeCAD_<yy.XrcY>-Linux-x86_64.AppImage" "FreeCAD_<yy.XrcY>-Linux-aarch64.AppImage"
+X ve Y herhangi birer rakam.  yy ise yılın son iki hanesi. 2026 için 26 gibi.
+örneğin:
+FreeCAD_26.3rc2-Linux-x86_64.AppImage
+FreeCAD_26.3rc2-Linux-aarch64.AppImage
+
+tag adresleri: "https://github.com/FreeCAD/FreeCAD/releases/tag/<yy.XrcY>" şeklindedir. Örneğin: "https://github.com/FreeCAD/FreeCAD/releases/tag/26.3rc1" .
+ Başlıkları "FreeCAD yy.X Release Candidate Y" şeklindedir. Örneğin: "FreeCAD 26.3 Release Candidate 1"
+
+
+appimage dosyasını indireceğin adres: https://github.com/FreeCAD/FreeCAD/releases/download/<yy.XrcY>/FreeCAD_<yy.XrcY>-Linux-<işlemci-mimarisi>.AppImage
+örneğin: https://github.com/FreeCAD/FreeCAD/releases/download/26.3rc2/FreeCAD_26.3rc2-Linux-x86_64.AppImage
+<işlemci-mimarisi>: x86_64 veya aarch64 . X ve Y herhangi birer rakam.  yy ise yılın son iki hanesi. 2026 için 26 gibi.
+
+*.deb paketi yayınlasalardı tahminen *.deb paketi adı: "FreeCAD_<yy.XrcY>-Linux-x86_64.deb" "FreeCAD_<yy.XrcY>-Linux-aarch64.deb" olurdu.
+
+*.rpm paketi yayınlasalardı tahminen *.rpm paketi adı: "FreeCAD_<yy.XrcY>-Linux-x86_64.rpm" "FreeCAD_<yy.XrcY>-Linux-aarch64.rpm" olurdu.
+
+
+zsync de pakete dahil edilmeli mümkünse eğer. Kullanıcı update komutu çalıştırdığında zsync sayesinde daha az dosya boyutu ile güncelleyebilmeli.
+böylece hergüncellemede epey bir internet kotası korunur.
+
+<dosya-adı>.<dosya-uzantısı>.zsync gibi zsync dosyaları da paketleme sürecinde kullanılmalı. bu dosyaları github depolarında yayınlıyorlar.
+örneğin: FreeCAD_1.1.4-Linux-x86_64-py311.AppImage.zsync 
+
+weekly'ler hariç olmalı, onlar paketlenmemeli. Bizim depomuz pre-release(candidate) ve stabil sürümleri barındırmalı. paket adında dosya adında linkte `weekly` ibaresi varsa paketlenmemeli. 
+FreeCAD_weekly-<yyyy.mm.dd>-Linux-<işlemci-mimarisi>.<dosya-uzantısı>  tarih yapıldı. örneğin: FreeCAD_weekly-2026.09.30-Linux-x86_64.AppImage
+
+weekly'ler hariç pre-releaseler olur. örnek verecek olursam <yy.XrcY> sürümler gibi.
+
+Haftalık sürümlerin başlıklarında `weekly` ibaresi yok. dosya isimlerinde weekly ibaresi var. "https://github.com/FreeCAD/FreeCAD/releases/tag/weekly-<yyyy.mm.dd>" şeklindedir ; başlıkta "Development Build weekly<yyyy.dd.mm>" şeklinde yazar . dosya isimlerinde "FreeCAD_weekly-<yyyy.mm.dd>-Linux-<.AppImage" örneğin: "FreeCAD_weekly-2026.09.30-Linux-aarch64.AppImage
+
+dosyalar indirildikten sonra sha256 kontrol yapılmalı. depoda <dosya-adı>.<dosya-uzantısı>-SHA256.txt dosyaları da var.
+
+clamav'ın güncellenmeli veritabanı
+taranmalı 
+
+
+
+sürüm numaralandırmaları değişti:
+
+ilk başta sürüm kodları X.Y.Z rakamlar şeklindeydi. en son X.Y.Z şeklindeki sürüm 1.1.4 idi. örneğin: FreeCAD_1.1.4-Linux-aarch64-py311.AppImage
+sonra 2026.09.30 gibi <yyyy.dd.mm>  tarih yapıldı. örneğin: FreeCAD_weekly-2026.09.30-Linux-x86_64.AppImage
+en sonunda da <yy.XrcY> şeklinde yapıldı. örneğin: FreeCAD_26.3rc1-Linux-aarch64.AppImage 
+rc1 rc2 şeklinde +1 ilavesi ile devam eder.
+
+weekly'ler halen tarih formatında numaralandırılıyor.
+
+weekly olmayan prerelease beta sürümler ve stable sürümler yeni numaralandırma (<yy.XrcY> şeklinde) ile numaralandırılıyor.
+
+github depom:
+https://github.com/universish/FreeCAD..Copr..CI..by..Socialist..Engineer/
+
+copr depom:
+https://copr.fedorainfracloud.org/coprs/universish/FreeCAD../
+
+stabil paket adı: freecad
+paket kurulum komutu `sudo <bla bla> <install> freecad`
+
+çalıştırma terminal komutu: `freecad`
+
+prerelease candidate paket adı: freecad-candidate
+paket kurulum komutu `sudo <bla bla> <install> freecad-candidate`
+
+çalıştırma komutu: `freecad-can`
+
+freecad veya freecad-candidate'den biri yüklüyse diğeri yüklenebilir. ama uyarı verir. şu yüklü bu da yüklensin mi, diye.
+freecad ve freecad-candidate sistemde iki tane olabilir. 
+ama freecad'den iki tane olamaz. freecad-candidate'den iki tane olamaz.
+dileyen dilediğini kurar dilediğini günceller. dileyen test eder.
+
+weekly kesinlikle yok.
+
+beta ve daha ileri sürümler paketlenmeli. weekly hariç.
+
+----
+
+dileyen kullanıcı hesabına kurabilmeli.
+
+dileyen de tüm kullanıcıların kullanabileceği şekilde ortak dizine kurabilmeli ve tüm kullanıcılar *.desktop kısayolu oluşturmalı.
+
+----
+
+
+.deb , .rpm , .Appimage dosyalarını çözüp onları fedora spec ile yeniden paketleyip copr'da yayınlayacak aksiyonlar iş akışları dosyaları yazmanı istiyorum, her güncellemede otomatik çalışıp rpm paketleyip otomatik copr deposunda yayınlanmalı.
+
+aarch64 ve x86_64 mimarileri için paketlenecek.
+
+paketleme numarası sürüm numarasının yanına yazılmalı: FreeCad-<version-nu.>-<paketleme-numarası> şeklinde.
+manuel olarak iş akışı başlatılabilmeli. 
+Otomatik olarak günde iki kez iş akışı başlatılabilmeli: FreeCAD merkezinin bulunduğu şehrin saat dilimine ve yerel utc  saatine göre öğle arası molasında ve iş çıkışında iş akışları otomatik başlatılmalı.
+
+iş akışında ilk iş yeni güncelleme yayınlanıp yayınlanmadığını kontrol etmek. yayınlanmadıysa iş akışını sonlandırmalı.
+yeni sürüm yayınlandıysa diğer iş akışlarını sırasıyla çalıştırmalı.
+Ayrıca webhooks da yap . her güncellemede otomatik çalışıp rpm paketleyip otomatik copr deposunda yayınlanmalı. Eğer kontrol mekanizmaları arızalanırsa bu da tetiklemeli. Ama her ikisi aynı anda devreye girerse çakışma olur  veya iki tane aynı anda paketlemeye çalışır, iki iş akışını aynı anda çalıştırmaya çalışır. çakışma vesaire sorunları olmamalı.
+
+
+otomatik paketleme ya da manuel paketleme yapıldığında copr deposunda yayınlanmış mevcut paketleme numarasına "+1" ilave edilerek paketleme numarası değiştirilmeli. böylece güncelleme yükseltme işlemlerinde sorun oluşmaz.
+copr depoda paketlenecek sürüm numarasına ait paketlenmiş bir paket yoksa paketleme  numarası 1'den başlamalı.
+
+her versiyon numarası değiştiğinde paketleme numarası sayacı sıfırlanmalı. "1"den başlamalı.
+
+Bunları (*.Appimage ve portable'ı) rpm'e dönüştürüp yayınlamalıyım, çünkü bunları dönüştürmek kolay. Eğer hem .Appimage hem .deb yayınladılarsa .deb paketini açmalı sadece. .deb'i .rpm'e paketlemek daha kolay çünkü.
+
+eğer sadece .appimage yayınlanırsa .appimage'i .rpm'e paketlemeli. -depoda şu ana kadar hiç *.deb veya *.rpm yayınlanmamış ama - eğer yayınlarlarsa bunları da .rpm'e paketlemeli. çünkü bunları dönüştürmek kolay.
+
+kontrol etme algoritma sıralaması şu şekilde.
+eğer *.rpm yayınlanmışsa diğerlerini boşver ve *.rpm paketini indirip açıp copr için *rpm paketlet.
+eğer *.rpm yayınlanmamışsa *.deb var mı kontrol et. 
+eğer *.deb yayınlanmışsa diğerlerini boşver ve *.deb paketini indirip açıp copr için *rpm paketlet.
+eğer *.deb yayınlanmamışsa *.Appimage var mı kontrol et. 
+eğer *.Appimage yayınlanmışsa diğerini(portable) boşver ve *.Appimage paketini indirip açıp copr için *rpm paketlet.
+
+.deb paketini rpm paketine çevirip paketlemek için de şu depodaki dosyalardan faydalan / mantığını anla. depo: https://github.com/anudeepd/localsend-fedora-copr-ci
+
+appimage'i rpm'e dönüştürüp paketlemek için bu depodaki dosyalardan faydalan / mantığını anla. depo: https://github.com/universish/saber..notes..copr..ci
+
+
+paketler açıldıktan sonra virus ve arka kapı ve xz tarzı sinsi paket dağıtım zararlılarına karşı arka kapı, zararlı yazılım vs güvenlik tehlikeleri için tarama yapmalıyız:
+
+virüs taramasını github deposunda yapacağız. bunu yapmamız gerekiyor. aksi takdirde anlamsız olacak. 
+
+fedoranın copr sunucularında virüs taraması yapmayacağız. github akisyonlar sanal makinesinde yapacağız.
+
+otomatik olarak hem virustotal hex sorgusu hem de clamav taraması yapmalı.
+öncelikle clamav veritabanları güncellenmeli.
+sonra clamav ile tüm paket içerikleri dosyalar taranmalı.
+ardından hex değerleri çıkarılmalı.
+ardından virüstotal api ile hex'ler sorgulanmalı.
+
+virustotalin yükleme dosya sınırları var. o yüzden dosyaları değil  virustotal'in taraması için kullandığı checksum hex kodunu yüklesin. tüm dosyayı yükleyeceğine dosyaların hepsinin tek tek hex kodunu yükleyip sorgulasın.
+
+bu işleme rağmen yine virustotal hata verirse sistem Uyarı versin; virustotal adımını atlasın. zorunlu ClamAV ve statik kontroller geçerse yayınlasın.
+
+----
+
+paketlenecek dağıtımlar:
+Release	Architectures	Repo Download
+Alma+epel 10	x86_64_v2 (0)*
+Alma+epel 9	aarch64 (0)*, x86_64 (0)*
+ Alma-kitten+epel 10	aarch64 (0)*, x86_64 (0)*, x86_64_v2 (0)*
+ Almalinux 10	x86_64_v2 (0)*
+ Almalinux 9	aarch64 (0)*, x86_64 (0)*
+ Almalinux-kitten 10	aarch64 (0)*, x86_64 (0)*, x86_64_v2 (0)*
+ Centos-stream+epel-next 9	aarch64 (0)*, x86_64 (0)*
+ Centos-stream 9	aarch64 (0)*, x86_64 (0)*
+ EPEL 10	aarch64 (0)*, x86_64 (0)*
+ EPEL 9	aarch64 (0)*, x86_64 (0)*
+ Fedora 44	aarch64 (0)*, x86_64 (0)*
+ Fedora 45	aarch64 (0)*, x86_64 (0)*
+ Fedora eln	aarch64 (0)*, x86_64 (0)*
+ Fedora rawhide	aarch64 (0)*, x86_64 (0)*
+ Mageia 10	aarch64 (0)*, x86_64 (0)*
+ openEuler 24.03	aarch64 (0)*, x86_64 (0)*
+ openSUSE Leap 16.0	aarch64 (0)*, x86_64 (0)*
+ openSUSE Tumbleweed	aarch64 (0)*, x86_64 (0)*
+
+----
+
+zsync de pakete dahil edilmeli mümkünse eğer. Kullanıcı update komutu çalıştırdığında zsync sayesinde daha az dosya boyutu ile güncelleyebilmeli.
+böylece hergüncellemede epey bir internet kotası korunur. güncelleme işi hızlanır.
+
+----
+
+Profesyonel kurumsal ve havalı bir README.md dosyası yaz. Profesyonel gelişmiş bir yazılıma yakışır olmalı. Mühendisleri kurumsal bir yazılım olan FreeCAD ile tanıştırmalı. 
+Havalı ama kurumsal görseller olmalı.
+FreeCAD'in dev logosu da olmalı.
+
+emoji olmamalı.
+
+----
+
+ardından;
+Şuna benzer bir metin de yaz:
+
+```
+
+This repository is an unofficial repository that converts AppImage packages from Taiko2k's Tauon repository into RPM packages.
+
+This copr allows you to install tauon.
+
+----
+
+This package rewraps the upstream prebuilt Linux portable with a Fedora spec. Library dependencies are auto-detected by rpmbuild's dependency generator; hicolor-icon-theme, xdg-user-dirs, xdg-utils and other system deps are declared explicitly. Currently x86_64 and arm64 only for Fedora 44 +, matching the tested upstream prebuilt release artifact.
+
+
+
+Tauon MusicBox is a repository that publishes unofficial RPM packages. The purpose of this repository is to make it easier to update tauon. Please report any bugs or package installation issues with this repository (in Copr repo) [here](https://github.com/universish/Tauon..MusicBox..Copr..ci/issues).
+
+
+
+Tauon MusicBox official [repo](https://github.com/Taiko2k/Tauon)
+
+```
+
+
+
+bu projenin github deposu:
+
+https://github.com/universish/OpenClaw..Copr..CI
+
+
+
+copr depom:
+
+https://copr.fedorainfracloud.org/coprs/universish/OpenClaw../
+
+
+
+kurulum komutu şu olmalı:
+
+`sudo dnf install openclaw` 
+
+Automated continuous integration pipeline to repackage upstream OpenClaw prebuilt .deb and .AppImage releases into native RPM packages for Fedora Linux, built and hosted on Fedora Copr.
+
+Overview
+OpenClaw is an all-in-one personal AI assistant and communication gateway. Upstream distributes its primary CLI via npm (which strictly enforces Node.js 24.16+/26.1+ LTS runtime gates and WAL-safe SQLite capabilities) and occasionally publishes pre-compiled Linux desktop artifacts as standalone .deb and .AppImage packages (OpenClaw-<yyyy.mm.dd>-amd64).
+
+Building Node.js/Electron desktop applications directly from source inside isolated build environments like Fedora Mock or Copr is frequently hindered by offline network boundaries, Node.js version constraints, and complex pnpm workspace toolchains. This repository resolves that issue by implementing an automated deb/AppImage-to-RPM repackaging pipeline:
+
+Monitors upstream GitHub releases for prebuilt Linux distribution artifacts.
+
+Smart Package Selection: Prioritizes .deb packages when available due to cleaner filesystem payload extraction; seamlessly falls back to unpacking .AppImage bundles (without requiring FUSE).
+
+Bypasses source-only and npm-only tags to keep this repository strictly focused on binary repackaging rather than source compilation.
+
+Sanitizes and normalizes payloads into a standardized architecture-specific source tarball (openclaw-<VERSION>-x86_64.tar.gz).
+
+Generates a clean Source RPM (.src.rpm).
+
+Dispatches automated build tasks to the universish/OpenClaw.. Copr repository across active Fedora chroots.
+
+Repository Structure
+
+.
+├── .github/
+│   └── workflows/
+│       └── copr-ci.yml        # Automated release detector, extractor, and Copr trigger
+├── openclaw.spec              # RPM packaging specification
+├── latest-version.txt         # State tracker for the last processed upstream release
+└── README.md
+
+omponent Deep Dive
+1. GitHub Actions Workflow (.github/workflows/copr-ci.yml)
+The workflow runs on a scheduled cron trigger (every 6 hours) and supports manual triggering (workflow_dispatch) with an optional force_version input.
+
+Operational Sequence:
+Upstream Release Resolution: Queries the GitHub REST API for openclaw/openclaw releases, strips any leading v prefixes, and determines the latest release tag (e.g., 2026.9.5).
+
+Prioritized Asset Detection:
+
+Primary Target (.deb): Searches for assets matching OpenClaw-.*-amd64\.deb. If found, selects this path as the preferred repackaging format.
+
+Fallback Target (.AppImage): If no .deb is published, searches for OpenClaw-.*-amd64\.AppImage.
+
+Source/NPM Bypass: If neither prebuilt format exists, the workflow gracefully skips the run, ensuring no broken compilations are attempted.
+
+Payload Extraction & Normalization:
+
+For .deb: Unpacks using ar and extracts the underlying data.tar.* archive directly.
+
+For .AppImage: Extracts the squashfs layer directly using 7z / unsquashfs, eliminating runtime FUSE dependencies inside GitHub Actions runner containers.
+
+Identifies and standardizes application payloads into /opt/openclaw, alongside .desktop launcher shortcuts and high-resolution icons.
+
+Isolated SRPM Generation: Compresses sanitized payloads into openclaw-<VERSION>-x86_64.tar.gz and runs rpmbuild -bs using openclaw.spec to output a clean, verifiable .src.rpm.
+
+Copr Dispatch (copr-cli): Injects credentials from the COPR_CONFIG secret into ~/.config/copr and triggers non-blocking builds (copr-cli build --nowait) targeting the universish/OpenClaw.. project chroots (e.g., fedora-41-x86_64, fedora-42-x86_64, fedora-rawhide-x86_64).
+
+Installation Instructions (Client-Side)
+To install OpenClaw on Fedora using the Copr repository:
+
+For Fedora (44, 45, Rawhide):
+
+sudo dnf install -y vikunja-webui-pwa
+For openSUSE (Tumbleweed & Leap 16.0):
+
+sudo zypper install -y vikunja-webui-pwa
+Update To bypass local metadata caching and upgrade the PWA launcher:
+For Fedora:
+
+sudo dnf upgrade --refresh -y vikunja-webui-pwa
+For openSUSE:
+
+sudo zypper refresh -f && sudo zypper update -y vikunja-webui-pwa
+Removal If you want to uninstall the PWA launcher from your system:
+For Fedora:
+
+sudo dnf remove -y vikunja-webui-pwa
+For openSUSE:
+
+sudo zypper remove -y vikunja-webui-pwa
+Uninstalling Software (Uninstall Packages)
+sudo dnf remove -y vikunja vikunja-desktop veans
+Disabling and Removing the Repository
+# To temporarily disable the repository:
+sudo dnf copr disable universish/Vikunja..
+
+# To completely remove the repository from the system:
+sudo dnf copr remove universish/Vikunja..
+2. openSUSE (Tumbleweed & Leap 16.0) Commands
+Adding the Repository (Add Repository)
+For openSUSE Tumbleweed (x86_64 & aarch64):
+
+sudo zypper addrepo -f https://copr.fedorainfracloud.org/coprs/universish/Vikunja../repo/opensuse-tumbleweed/universish-Vikunja..-opensuse-tumbleweed.repo
+sudo zypper --gpg-auto-import-keys refresh
+For openSUSE Leap 16.0 (x86_64 & aarch64):
+
+sudo zypper addrepo -f https://copr.fedorainfracloud.org/coprs/universish/Vikunja../repo/opensuse-leap-16.0/universish-Vikunja..-opensuse-leap-16.0.repo
+sudo zypper --gpg-auto-import-keys refresh
+Installing Software (Install Packages)
+# To install all packages:
+sudo zypper install -y vikunja vikunja-desktop veans
+
+# To install only the desktop client:
+sudo zypper install -y vikunja-desktop
+
+# To install only the Vikunja server:
+sudo zypper install -y vikunja
+
+# To install only the Veans CLI tool:
+sudo zypper install -y veans
+Bypassing the Metadata Cache and Updating Packages
+To bypass local metadata caching and immediately pull new builds or packaging revisions (vikunja-v<version>-<package-number>):
+
+sudo zypper refresh -f && sudo zypper update -y vikunja vikunja-desktop veans
+If package metadata does not resolve immediately:
+
+sudo zypper clean --all && sudo zypper --gpg-auto-import-keys refresh -f
+sudo zypper install -y vikunja vikunja-desktop veans
+Uninstalling Packages
+sudo zypper remove -y vikunja vikunja-desktop veans
+Disabling and Removing the Repository
+# To temporarily disable the repository:
+sudo zypper modifyrepo -d copr:copr.fedorainfracloud.org:universish:Vikunja..
+
+# To completely remove the repository from the system:
+sudo zypper removerepo copr:copr.fedorainfracloud.org:universish:Vikunja..
+
+Feedback & Issues
+This repository is an unofficial packaging pipeline intended to simplify installing and updating OpenClaw on Fedora.
+
+Please report any RPM packaging or Copr installation issues in our Issue Tracker.
+
+For upstream application bugs, feature requests, or documentation, visit the official OpenClaw Website or the official GitHub Repository.
+
+License
+Packaging scripts, GitHub Actions workflows, and spec files in this repository are licensed under the MIT License.
+
+The underlying OpenClaw application and prebuilt binaries are governed by upstream OpenClaw licensing terms.
+
+
+----
+
+bu metni README.md dosyasının altına ekle. tüm metimler ingilizce olmalı.
+
+----
+
+Ardından BENi..OKU.md dosyası oluştur ve README.md dosyası içeriğini türkçeye çevirip bu dosyaya kaydet.
+
+

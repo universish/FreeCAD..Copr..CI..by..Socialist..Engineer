@@ -1,0 +1,232 @@
+# FreeCAD Copr CI — upstream önceden derlenmiş sürümü RPM'e dönüştürüp
+# Copr'da yayınlayan otomatik boru hattı.
+#
+# Tetikleyiciler:
+#   1) Zamanlanmış cron — günde 2 kez (FreeCAD merkezinin Avrupa/Berlin saat
+#      dilimindeki öğle arası ve iş çıkışı). GitHub cron HER ZAMAN UTC'dir:
+#        11:30 UTC ≈ Berlin 12:30 (kış) / 13:30 (yaz)
+#        16:30 UTC ≈ Berlin 17:30 (kış) / 18:30 (yaz)
+#      Yaz saati kaymasını tam ortadan kaldırmak için aşağıdaki webhook
+#      yöntemini (Europe/Berlin destekli dış zamanlayıcı) kullanın.
+#   2) workflow_dispatch — manuel tetik; isteğe bağlı sürüm zorlama.
+#   3) repository_dispatch — webhook: upstream yayın ping'i veya sağlık kontrolü.
+#
+# Çakışma koruması: concurrency grubu aynı anda yalnızca BİR boru hattına
+# izin verir. Webhook + cron + manuel tetik aynı anda gelirse kuyruğa girer;
+# ikinci çalışma gate adımında "yeni sürüm yok" sonucu alıp kendini bitirir.
+# Böylece iki aynı paket asla aynı anda derlenmez, paketleme numarası sayacı
+# asla çakışmaz.
+
+name: FreeCAD Copr CI
+
+on:
+  schedule:
+    - cron: '30 11 * * *'
+    - cron: '30 16 * * *'
+  workflow_dispatch:
+    inputs:
+      force_version:
+        description: 'İşlenmeye zorlanacak sürüm etiketi (örn. 26.3rc2); boş = en güncel sürüm'
+        required: false
+        default: ''
+      force_channel:
+        description: 'Kanal'
+        type: choice
+        options: [auto, stable, candidate]
+        default: 'auto'
+  repository_dispatch:
+    types: [freecad-upstream-release, freecad-healthcheck]
+
+concurrency:
+  group: freecad-copr-pipeline
+  cancel-in-progress: false
+
+env:
+  COPR_PROJECT: universish/FreeCAD..
+
+jobs:
+  # ---------------------------------------------------------------- gate ----
+  # Yeni weekly-olmayan sürüm var mı? Kanal (stable/candidate) ve paketleme
+  # numarası burada hesaplanır. Değişiklik yoksa sonraki işler çalışmaz.
+  gate:
+    name: Sürüm tespiti ve paketleme numarası
+    runs-on: ubuntu-latest
+    outputs:
+      changed:    ${{ steps.detect.outputs.changed }}
+      version:    ${{ steps.detect.outputs.version }}
+      tag:        ${{ steps.detect.outputs.tag }}
+      channel:    ${{ steps.detect.outputs.channel }}
+      pkg:        ${{ steps.detect.outputs.pkg }}
+      bin:        ${{ steps.detect.outputs.bin }}
+      release:    ${{ steps.detect.outputs.release }}
+      html_url:   ${{ steps.detect.outputs.html_url }}
+      x86_64_url:    ${{ steps.detect.outputs.x86_64_url }}
+      x86_64_fmt:    ${{ steps.detect.outputs.x86_64_fmt }}
+      x86_64_sha:    ${{ steps.detect.outputs.x86_64_sha }}
+      x86_64_zsync:  ${{ steps.detect.outputs.x86_64_zsync }}
+      aarch64_url:   ${{ steps.detect.outputs.aarch64_url }}
+      aarch64_fmt:   ${{ steps.detect.outputs.aarch64_fmt }}
+      aarch64_sha:   ${{ steps.detect.outputs.aarch64_sha }}
+      aarch64_zsync: ${{ steps.detect.outputs.aarch64_zsync }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Araçlar
+        run: sudo apt-get update && sudo apt-get install -y jq curl
+      - name: Upstream sürümünü tespit et
+        id: detect
+        env:
+          FORCE_VERSION: ${{ github.event.inputs.force_version }}
+          FORCE_CHANNEL: ${{ github.event.inputs.force_channel }}
+        run: ./scripts/detect-release.sh
+      - name: Sonuç özeti
+        run: |
+          echo "changed = ${{ steps.detect.outputs.changed }}"
+          echo "yeni paket: ${{ steps.detect.outputs.pkg }}-${{ steps.detect.outputs.version }}-${{ steps.detect.outputs.release }}"
+
+  # ---------------------------------------------------------------- build ---
+  # Mimari başına bir runner: varlık indirilir, SHA256 doğrulanır, açılıp
+  # normalize edilir, ClamAV + VirusTotal taramasından GEÇMEDEN Copr'a
+  # gönderilmez. Güvenlik taraması HER ZAMAN GitHub sanal makinesinde yapılır;
+  # Copr/mock sunucularında tarama yapılmaz.
+  build:
+    name: İndir, tara, yeniden paketle (${{ matrix.arch }})
+    needs: gate
+    if: needs.gate.outputs.changed == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      ARCH: ${{ matrix.arch }}
+      PKG:  ${{ needs.gate.outputs.pkg }}
+      BIN:  ${{ needs.gate.outputs.bin }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Derleme ve tarama araçları
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl p7zip-full squashfs-tools \
+              rpm binutils desktop-file-utils
+          sudo apt-get install -y clamav clamav-freshclam
+      - name: Varlığı indir ve SHA256 doğrula
+        id: fetch
+        env:
+          ASSET_URL: ${{ matrix.arch == 'x86_64' && needs.gate.outputs.x86_64_url || needs.gate.outputs.aarch64_url }}
+          ASSET_FMT: ${{ matrix.arch == 'x86_64' && needs.gate.outputs.x86_64_fmt || needs.gate.outputs.aarch64_fmt }}
+          ZSYNC_URL: ${{ matrix.arch == 'x86_64' && needs.gate.outputs.x86_64_zsync || needs.gate.outputs.aarch64_zsync }}
+          SHA_URL:   ${{ matrix.arch == 'x86_64' && needs.gate.outputs.x86_64_sha || needs.gate.outputs.aarch64_sha }}
+          VERSION:   ${{ needs.gate.outputs.version }}
+        run: ./scripts/fetch-and-verify.sh
+      - name: Yeniden paketle (normalize payload üret)
+        env:
+          FNAME:     ${{ steps.fetch.outputs.fname }}
+          ASSET_FMT: ${{ matrix.arch == 'x86_64' && needs.gate.outputs.x86_64_fmt || needs.gate.outputs.aarch64_fmt }}
+        run: ./scripts/repackage.sh
+      - name: Güvenlik taraması (ClamAV + VirusTotal)
+        env:
+          TARGET:     payload/${{ matrix.arch }}
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: ./scripts/security-scan.sh
+      - name: Payload artefaktı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload-${{ matrix.arch }}
+          path: payload/${{ matrix.arch }}
+          retention-days: 7
+
+  # ---------------------------------------------------------------- srpm ----
+  # İki mimarinin payload'unu tek kaynak ağacında birleştirip SRPM üretir.
+  srpm:
+    name: Kaynak RPM üret
+    needs: [gate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Araçlar
+        run: sudo apt-get update && sudo apt-get install -y rpm jq curl
+      - name: Payload'ları indir
+        uses: actions/download-artifact@v4
+        with:
+          pattern: payload-*
+          path: payload
+          merge-multiple: true
+      - name: SRPM derle
+        env:
+          PKG:     ${{ needs.gate.outputs.pkg }}
+          VERSION: ${{ needs.gate.outputs.version }}
+          RELEASE: ${{ needs.gate.outputs.release }}
+        run: ./scripts/build-srpm.sh
+      - name: SRPM artefaktı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: srpm
+          path: SRPMS/*.src.rpm
+          retention-days: 14
+
+  # ---------------------------------------------------------------- copr ----
+  copr:
+    name: Copr'a gönder ve derlemeleri başlat
+    needs: [gate, srpm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: srpm
+          path: SRPMS
+      - name: Copr istemcisi kur
+        run: sudo apt-get update && sudo apt-get install -y copr-cli
+      - name: Copr kimliğini yapılandır
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          mkdir -p ~/.config
+          printf '%s\n' "$COPR_CONFIG" > ~/.config/copr
+          chmod 600 ~/.config/copr
+      - name: Tüm chrootlar için derlemeyi başlat
+        run: |
+          mapfile -t chroots < <(grep -Ev '^[[:space:]]*(#|$)' chroots.txt)
+          echo "Hedef chrootlar: ${chroots[*]}"
+          args=()
+          for c in "${chroots[@]}"; do args+=(-r "$c"); done
+          copr-cli build --nowait --timeout 21600 \
+              "${args[@]}" \
+              "$COPR_PROJECT" \
+              SRPMS/*.src.rpm
+
+  # ---------------------------------------------------------------- fin -----
+  # Derleme görevleri başarıyla kuyruğa alındıktan sonra durum dosyasını
+  # günceller; bir sonraki çalıştırma paketleme numarasını buna göre +1 yapar.
+  finalize:
+    name: Durum dosyasını güncelle
+    needs: [gate, copr]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: state/${{ needs.gate.outputs.pkg }}.json güncelle
+        env:
+          PKG:      ${{ needs.gate.outputs.pkg }}
+          VERSION:  ${{ needs.gate.outputs.version }}
+          RELEASE:  ${{ needs.gate.outputs.release }}
+          HTML_URL: ${{ needs.gate.outputs.html_url }}
+        run: |
+          jq -n --arg v "$VERSION" --argjson r "$RELEASE" --arg u "$HTML_URL" \
+            '{version:$v, release:$r, upstream_url:$u,
+              updated_at:(now|strftime("%Y-%m-%dT%H:%M:%SZ"))}' \
+            > "state/$PKG.json"
+          cat "state/$PKG.json"
+      - name: Değişikliği gönder
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "state/${{ needs.gate.outputs.pkg }}.json"
+          git commit -m "ci: ${{ needs.gate.outputs.pkg }} ${{ needs.gate.outputs.version }}-${{ needs.gate.outputs.release }} copr'a gönderildi [skip ci]" \
+            || echo "Gönderilecek değişiklik yok"
+          git push
