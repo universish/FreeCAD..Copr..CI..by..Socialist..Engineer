@@ -23,12 +23,15 @@ VT_MAX_FILES="${VT_MAX_FILES:-150}"
 REPORT="clamav-report-$(echo "$TARGET" | tr '/ ' '__').txt"
 
 echo "::group::1/3 — ClamAV veritabanı güncellemesi"
-# Runner imgesinde arka planda çalisabilen freshclam servisi log kilidi tutar;
-# önce durdurulur, sonra güncelleme kendi log dosyuna degil stderr'e yazilir.
+# Runner imgesinde arka planda çalisabilen freshclam servisi log kilidi tutar.
+# Önce servis durdurulur, kalan süreç öldürülür, kilit/pid dosyalari temizlenir;
+# ardindan varsayilan güncelleme yapilir (özel log dosyasi seçeneği kullanilmaz:
+# farkli freshclam sürümlerinde stderr sözdizimi dosya adi sanilarak hata verebilir).
 sudo systemctl stop clamav-freshclam 2>/dev/null || true
 sudo pkill -x freshclam 2>/dev/null || true
 sleep 2
-sudo freshclam --quiet --log=stderr \
+sudo rm -f /var/log/clamav/freshclam.log.lock /run/clamav/freshclam.pid 2>/dev/null || true
+sudo freshclam --quiet --no-warnings \
     || echo "::warning::freshclam başarısız; mevcut imza veritabanıyla taranıyor."
 echo "::endgroup::"
 
