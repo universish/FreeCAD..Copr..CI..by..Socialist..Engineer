@@ -17,14 +17,24 @@ set -euo pipefail
 : "${TARGET:?hedef dizin gerekli (TARGET)}"
 VT_MAX_FILES="${VT_MAX_FILES:-150}"
 
+# Rapor dosyasi adinda dizin ayiraci olmasin (TARGET=payload/aarch64 gibi
+# degerlerde tee hedef yolunu bulamayip hata verirdi).
+REPORT="clamav-report-$(echo "$TARGET" | tr '/ ' '__').txt"
+
 echo "::group::1/3 — ClamAV veritabanı güncellemesi"
-sudo freshclam --quiet \
+# Runner imgesinde arka planda çalisabilen freshclam servisi log kilidi tutar;
+# önce durdurulup beklenir, sonra güncelleme kendi log dosyuna degil stderr'e
+# yazilir (log kilidi hatasi tamamen ortadan kalkar).
+sudo systemctl stop clamav-freshclam 2>/dev/null || true
+sudo pkill -x freshclam 2>/dev/null || true
+sleep 2
+sudo freshclam --quiet --log=stderr \
     || echo "::warning::freshclam başarısız; mevcut imza veritabanıyla taranıyor."
 echo "::endgroup::"
 
 echo "::group::2/3 — ClamAV tam taraması: $TARGET"
 set +e
-clamscan -r --infected --scan-archive=yes "$TARGET" | tee "clamav-report-$TARGET.txt"
+clamscan -r --infected --scan-archive=yes "$TARGET" | tee "$REPORT"
 rc=${PIPESTATUS[0]}
 set -e
 if [ "$rc" -eq 1 ]; then
