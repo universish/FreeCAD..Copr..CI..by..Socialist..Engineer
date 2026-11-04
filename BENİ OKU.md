@@ -180,6 +180,10 @@ Hat idempotenttir (kendini tekrarlamaz): sürüm daha önce işlendiyse çalış
 ├── freecad-candidate.spec     # Sürüm adayı paket spec dosyası
 ├── chroots.txt                # Hedef Copr chroot'ları
 ├── state/                     # Paket başına son işlenen sürüm
+│       ├── freecad.json
+│       └── freecad-candidate.json
+├── LICENSE                    # MIT License dosyası
+├── BENİ OKU.md 
 └── README.md
 ```
 
@@ -200,3 +204,8 @@ Upstream uygulama hataları, özellik istekleri veya belgeleme için resmî [Fre
 Bu depodaki paketleme betikleri, GitHub Actions iş akışları ve spec dosyaları MIT Lisansı altındadır.
 
 FreeCAD uygulamasının kendisi ve önceden derlenmiş dosyaları upstream FreeCAD lisans koşullarına (LGPL-2.1-or-later; Zlib, BSD-3-Clause, Apache-2.0, MIT vb. altında bileşenlerle) tabidir.
+
+
+Kimi AI'ın ücretsiz "Hızlı" modeli tarafından hızlı modda "Yüksek" düşünme seviyesinde gerekli eklentirler ve araçlar ve skills kullanılarak yaratıldı. Fikir ve prompt, mühendis universish tarafından yazıldı.
+
+Copyrights 2026 (c) universish (S* Y*)

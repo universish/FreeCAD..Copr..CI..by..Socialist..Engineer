@@ -2,6 +2,8 @@
 # detect-release.sh
 # FreeCAD/FreeCAD GitHub releases icindeki EN GUNCEL weekly-olmayan sürümü tespit eder.
 #
+# Copyrights 2026 (c) universish (Saffet Yavuz)
+# 
 # Kanal kurallari (kullanici spesifikasyonundan):
 #   - "weekly-" etiketli sürümler ve adinda "weekly" gecen varliklar TAMAMEN atlanir.
 #   - Kararli (stable) sürüm  -> kanal=stable  -> paket: freecad      (binary: freecad)

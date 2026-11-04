@@ -2,6 +2,8 @@
 # repackage.sh — indirilen .rpm/.deb/.AppImage dosyasini açar ve Copr RPM'ine
 # gömülecek normalize edilmis filesystem agacini üretir:
 #
+# Copyrights 2026 (c) universish (Saffet Yavuz)
+# 
 #   payload/$ARCH/opt/$PKG/            (uygulamanin tamamı, gömülü çalisma zamani)
 #   payload/$ARCH/opt/$PKG/updates/    (zsync fark-indirme dosyalari)
 #   payload/$ARCH/usr/bin/$BIN         (başlatici sarmalayici)

@@ -1,6 +1,8 @@
 # FreeCAD Copr CI — upstream önceden derlenmiş sürümü RPM'e dönüştürüp
 # Copr'da yayınlayan otomatik boru hattı.
 #
+# Copyrights 2026 (c) universish (Saffet Yavuz)
+# 
 # Tetikleyiciler:
 #   1) Zamanlanmış cron — günde 2 kez (FreeCAD merkezinin Avrupa/Berlin saat
 #      dilimindeki öğle arası ve iş çıkışı). GitHub cron HER ZAMAN UTC'dir:

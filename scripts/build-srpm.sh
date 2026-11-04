@@ -2,6 +2,8 @@
 # build-srpm.sh — iki mimarinin payload'unu TEK kaynak ağacinda birleştirir
 # ve Fedora spec ile Source RPM (.src.rpm) üretir.
 #
+# Copyrights 2026 (c) universish (Saffet Yavuz)
+# 
 # Kaynak ağaci yapisi:
 #   $PKG-$VERSION/
 #     x86_64/opt/... usr/...

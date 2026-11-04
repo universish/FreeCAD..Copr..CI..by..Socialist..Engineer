@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # security-scan.sh — paketlenecek yük üzerinde çift katmanli güvenlik taramasi.
 #
+# Copyrights 2026 (c) universish (Saffet Yavuz)
+# 
 # 1) ClamAV imza veritabani güncellenir (freshclam) ve TÜM içerik taranir.
 #    ClamAV zararli tespit ederse akis DURUR.
 # 2) Her dosyanin SHA256 özeti çikarilir ve VirusTotal API ile dosya YÜKLEMEDEN

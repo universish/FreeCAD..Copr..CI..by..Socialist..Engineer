@@ -168,18 +168,22 @@ The pipeline is idempotent: if the release was already processed, the run exits 
 ```
 .
 ├── .github/
-│   └── workflows/
-│       └── copr-ci.yml        # Release detector, scanner, repackager, Copr trigger
+│       └── workflows/
+│           └── copr-ci.yml                   # Release detector, scanner, repackager, Copr trigger
 ├── scripts/
-│   ├── detect-release.sh      # Upstream release/channel/revision detection
-│   ├── fetch-and-verify.sh    # Download + SHA-256 verification
-│   ├── repackage.sh           # rpm/deb/AppImage extraction and normalization
-│   ├── security-scan.sh       # ClamAV + VirusTotal scanning
-│   └── build-srpm.sh          # Source RPM generation
-├── freecad.spec               # Stable package spec
-├── freecad-candidate.spec     # Release candidate package spec
-├── chroots.txt                # Target Copr chroots
-├── state/                     # Last processed version per package
+│       ├── detect-release.sh             # Upstream release/channel/revision detection
+│       ├── fetch-and-verify.sh           # Download + SHA-256 verification
+│       ├── repackage.sh                   # rpm/deb/AppImage extraction and normalization
+│       ├── security-scan.sh              # ClamAV + VirusTotal scanning
+│       └── build-srpm.sh                  # Source RPM generation
+├── freecad.spec                            # Stable package spec
+├── freecad-candidate.spec           # Release candidate package spec
+├── chroots.txt                               # Target Copr chroots
+├── state/                                       # Last processed version per package
+│       ├── freecad.json
+│       └── freecad-candidate.json
+├── LICENSE                                   # MIT License
+├── BENİ OKU.md                           # turkish readme
 └── README.md
 ```
 
@@ -195,8 +199,14 @@ Please report RPM packaging or Copr installation issues in our [issue tracker](h
 
 For upstream application bugs, feature requests or documentation, visit the official [FreeCAD website](https://www.freecad.org/) or the official [GitHub repository](https://github.com/FreeCAD/FreeCAD).
 
+
 ## License
 
-Packaging scripts, GitHub Actions workflows and spec files in this repository are licensed under the MIT License.
+Packaging scripts, GitHub Actions workflows and spec files in this repository are licensed under the [MIT License.](https://raw.githubusercontent.com/universish/FreeCAD..Copr..CI..by..Socialist..Engineer/refs/heads/main/LICENSE)
 
 The underlying FreeCAD application and prebuilt binaries are governed by the upstream FreeCAD licensing terms (LGPL-2.1-or-later, with components under Zlib, BSD-3-Clause, Apache-2.0, MIT and others).
+
+“Kimi AI” was created in fast mode at the ‘High’ thinking level using the necessary plugins, tools, and skills provided by the free “Fast” model. The idea and prompt were written by engineer universish.
+
+Copyrights 2026 (c) universish (S* Y*)
+

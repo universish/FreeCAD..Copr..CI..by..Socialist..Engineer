@@ -3,6 +3,8 @@
 # bütünlük dogrular; varsa .zsync fark-indirme dosyasini da alir
 # (sonradan RPM paketine gömülüp kullaniciya kota tasarrufu saglanir).
 #
+# Copyrights 2026 (c) universish (Saffet Yavuz)
+# 
 # Gerekli çevre degiskenleri: ARCH, ASSET_URL, ASSET_FMT, VERSION
 # Opsiyonel: SHA_URL, ZSYNC_URL
 set -euo pipefail
