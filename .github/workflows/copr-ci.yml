@@ -185,8 +185,14 @@ jobs:
         with:
           name: srpm
           path: SRPMS
-      - name: Copr istemcisi kur
-        run: sudo apt-get update && sudo apt-get install -y copr-cli
+      # copr-cli Ubuntu depolarinda yoktur (Fedora/Copr ekosisteminin aracidir);
+      # resmi dagitim yolu pip'tir. Yapilandirma dosyasi yine ~/.config/copr'dur.
+      - name: Copr istemcisi kur (pip)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install --user copr-cli
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Copr kimliğini yapılandır
         env:
           COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
