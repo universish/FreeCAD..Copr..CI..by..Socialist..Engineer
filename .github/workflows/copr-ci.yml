@@ -1,8 +1,6 @@
 # FreeCAD Copr CI — upstream önceden derlenmiş sürümü RPM'e dönüştürüp
 # Copr'da yayınlayan otomatik boru hattı.
 #
-# Copyrights 2026 (c) universish (Saffet Yavuz)
-# 
 # Tetikleyiciler:
 #   1) Zamanlanmış cron — günde 2 kez (FreeCAD merkezinin Avrupa/Berlin saat
 #      dilimindeki öğle arası ve iş çıkışı). GitHub cron HER ZAMAN UTC'dir:
@@ -28,11 +26,11 @@ on:
   workflow_dispatch:
     inputs:
       force_version:
-        description: 'İşlenmeye zorlanacak sürüm etiketi (örn. 26.3rc2); boş = en güncel sürüm'
+        description: 'İşlenmeye zorlanacak sürüm etiketi (örn. 26.3, 26.3rc2); boş = kanalın en güncel sürümü. Nightly/weekly etiketi HATA verir.'
         required: false
         default: ''
       force_channel:
-        description: 'Kanal'
+        description: 'auto = stable+candidate havuzunda en güncel olanı seç (sürüm girilirse etiketten kanal tespit edilir); stable = YALNIZ kararlı sürümler; candidate = YALNIZ rc/beta aday sürümler'
         type: choice
         options: [auto, stable, candidate]
         default: 'auto'

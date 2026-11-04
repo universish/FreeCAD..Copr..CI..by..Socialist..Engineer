@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 # detect-release.sh
-# FreeCAD/FreeCAD GitHub releases icindeki EN GUNCEL weekly-olmayan sürümü tespit eder.
+# FreeCAD/FreeCAD GitHub releases icindeki istenen KANALA uygun EN GUNCEL sürümü tespit eder.
 #
 # Copyrights 2026 (c) universish (Saffet Yavuz)
-# 
-# Kanal kurallari (kullanici spesifikasyonundan):
-#   - "weekly-" etiketli sürümler ve adinda "weekly" gecen varliklar TAMAMEN atlanir.
-#   - Kararli (stable) sürüm  -> kanal=stable  -> paket: freecad      (binary: freecad)
-#   - Ön-sürüm (rc/beta)      -> kanal=candidate -> paket: freecad-candidate (binary: freecad-can)
-#   - Sürüm numarasi X.Y.Z (eski), <yyyy.mm.dd> (weekly, atlanir) veya <yy.XrcY> (yeni) olabilir.
+#
+# SÜRÜM SINIFLARI:
+#   - Kararli (stable) : etikette rc/beta/alpha gecmez, GitHub prerelease bayragi false.
+#                      Paket: freecad        (binary: freecad)
+#   - Aday (candidate) : <yy.XrcY> gibi ara form (beta gibi düsünülür). NE stable NE
+#                      nightly'dir. Paket: freecad-candidate (binary: freecad-can)
+#   - Nightly/weekly   : "weekly-" ile baslayan etiketler ve adinda "weekly" gecen
+#                      varliklar TAMAMEN dislanir; ASLA paketlenmez.
+#
+# KANAL (FORCE_CHANNEL) KURALLARI:
+#   auto      -> stable+candidate havuzunda EN GUNCEL olani seçer.
+#   stable    -> YALNIZCA kararli sürümler arasindan en günceli seçer.
+#   candidate -> YALNIZCA aday (rc/beta) sürümler arasindan en günceli seçer.
+#
+# SÜRÜM ZORLAMA (FORCE_VERSION) KURALLARI:
+#   - Kanal=auto + sürüm girildi      : etiket candidate ise candidate, stable ise
+#                                       stable kanali otomatik seçilir.
+#   - Kanal=stable + candidate etiketi girildi   -> HATA (uyusmazlik).
+#   - Kanal=candidate + stable etiketi girildi   -> HATA (uyusmazlik).
+#   - Nightly/weekly etiketi girildi             -> HATA (desteklenmez).
 #
 # Varlik seçim önceliği (her mimari icin): 1) .rpm  2) .deb  3) .AppImage
-# (.rpm/.deb yayinlanirsa AppImage'e hic bakilmaz; hicbiri yoksa akis durur.)
 #
 # Paketleme numarasi kurali:
 #   - Sürüm degisti -> paketleme numarasi 1
@@ -29,29 +42,93 @@ API="https://api.github.com/repos/FreeCAD/FreeCAD/releases"
 
 echo "::group::Upstream sürüm tespiti"
 
+# --------------------------------------------------- etiket siniflandirma ----
+is_candidate_tag() {
+    # <yy.XrcY> ara formu + klasik beta/alpha/pre ibareleri -> candidate
+    echo "$1" | grep -qiE '(rc[0-9]+|beta|alpha|pre)'
+}
+
+is_weekly_tag() {
+    case "$1" in
+        weekly-*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Tek bir release JSON nesnesinden kanali tespit eder: stable | candidate
+classify_release() {
+    local tag prerelease
+    tag=$(echo "$1" | jq -r '.tag_name')
+    prerelease=$(echo "$1" | jq -r '.prerelease')
+    if [ "$prerelease" = "true" ] || is_candidate_tag "$tag"; then
+        echo "candidate"
+    else
+        echo "stable"
+    fi
+}
+
 # ------------------------------------------------------------- sürümü bul ----
 if [ -n "$FORCE_VERSION" ]; then
-    # Manuel tetik: belirtilen etiket dogrudan islenir.
+    # Manuel tetik: belirtilen etiket dogrudan alinir.
     tag="${FORCE_VERSION#v}"
+
+    if is_weekly_tag "$tag"; then
+        echo "::error::'$tag' bir nightly/weekly sürümüdür; desteklenmez."
+        exit 1
+    fi
+
     release=$(curl -fsSL -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        "$API/tags/$tag")
+        "$API/tags/$tag" 2>/dev/null) \
+        || { echo "::error::'$tag' etiketli sürüm GitHub'da bulunamadı."; exit 1; }
+
+    detected=$(classify_release "$release")
+
+    # Kanal/sürüm uyusmazlik denetimi
+    if [ "$FORCE_CHANNEL" = "auto" ]; then
+        channel="$detected"
+    elif [ "$FORCE_CHANNEL" = "stable" ] && [ "$detected" = "candidate" ]; then
+        echo "::error::'$tag' bir candidate (rc/beta) sürümüdür ama kanal 'stable' seçildi."
+        echo "::error::Kanalı 'candidate' seçin ya da 'auto' kullanın."
+        exit 1
+    elif [ "$FORCE_CHANNEL" = "candidate" ] && [ "$detected" = "stable" ]; then
+        echo "::error::'$tag' bir stable sürümüdür ama kanal 'candidate' seçildi."
+        echo "::error::Kanalı 'stable' seçin ya da 'auto' kullanın."
+        exit 1
+    else
+        channel="$FORCE_CHANNEL"
+    fi
 else
-    # Otomatik: ilk sayfalarda weekly-olmayan EN GUNCEL sürümü bul.
+    # Otomatik: istenen kanala uygun EN GUNCEL sürümü bul.
+    # GitHub releases API'si en yeniden eskiye siralar; sayfalari geziyoruz.
     release=""
-    for page in 1 2 3 4; do
+    for page in 1 2 3 4 5 6 8 10; do
         batch=$(curl -fsSL -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "$API?per_page=25&page=$page")
-        release=$(echo "$batch" | jq -c '[.[] | select(.tag_name | startswith("weekly-") | not)][0] // empty')
-        [ -n "$release" ] && [ "$release" != "null" ] && break
+        [ "$(echo "$batch" | jq 'length')" -eq 0 ] && break
+
+        while IFS= read -r rel; do
+            [ -z "$rel" ] && continue
+            rtag=$(echo "$rel" | jq -r '.tag_name')
+            is_weekly_tag "$rtag" && continue
+            rch=$(classify_release "$rel")
+            if [ "$FORCE_CHANNEL" = "auto" ] || [ "$FORCE_CHANNEL" = "$rch" ]; then
+                release="$rel"
+                break 2
+            fi
+        done < <(echo "$batch" | jq -c '.[]')
     done
-    [ -n "$release" ] && [ "$release" != "null" ] || { echo "::error::Weekly-olmayan upstream sürüm bulunamadı"; exit 1; }
+
+    if [ -z "$release" ]; then
+        echo "::error::Kanal '$FORCE_CHANNEL' için uygun upstream sürümü bulunamadı."
+        exit 1
+    fi
     tag=$(echo "$release" | jq -r '.tag_name')
+    channel=$(classify_release "$release")
 fi
 
 version="${tag#v}"
-gh_prerelease=$(echo "$release" | jq -r '.prerelease')
 title=$(echo "$release" | jq -r '.name')
 html_url=$(echo "$release" | jq -r '.html_url')
 assets=$(echo "$release" | jq -c '[.assets[] | {name, url: .browser_download_url}]')
@@ -60,19 +137,6 @@ echo "Etiket   : $tag"
 echo "Sürüm    : $version"
 echo "Başlık   : $title"
 echo "Sayfa    : $html_url"
-echo "GH prerelease bayrağı: $gh_prerelease"
-
-# ------------------------------------------------------------- kanal tespiti -
-if [ "$FORCE_CHANNEL" != "auto" ]; then
-    channel="$FORCE_CHANNEL"
-elif [ "$gh_prerelease" = "true" ]; then
-    channel="candidate"
-elif echo "$version" | grep -qiE '(rc[0-9]+|beta|alpha|pre)'; then
-    # GitHub prerelease bayrağı yanlışsa etiketteki rc/beta ibaresine güven.
-    channel="candidate"
-else
-    channel="stable"
-fi
 
 if [ "$channel" = "stable" ]; then
     pkg="freecad"; bin="freecad"
