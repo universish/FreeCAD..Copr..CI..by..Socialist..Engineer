@@ -5,11 +5,12 @@
 # 
 # 1) ClamAV imza veritabani güncellenir (freshclam) ve TÜM içerik taranir.
 #    ClamAV zararli tespit ederse akis DURUR.
-# 2) Her dosyanin SHA256 özeti çikarilir ve VirusTotal API ile dosya YÜKLEMEDEN
-#    yalnizca özet sorgulanir (ücretsiz kotanin korunması icin).
+# 2) Çalistirilabilir ikililer ve paylaşimli kütüphanelerin SHA256 özeti
+#    çikarilir; VirusTotal API ile DOSYA YÜKLEMEDEN yalnizca özet sorgulanir.
 #    VT'de malicious/suspicious > 0 ise akis DURUR.
-# 3) VirusTotal erisilemez/hata verirse (429, 5xx, anahtar yok vs.) yalnizca
-#    UYARI verilir ve akis devam eder — zorunlu kontroller ClamAV + SHA256'dır.
+# 3) VirusTotal 429 (kota) verirse 30 sn bekleyip en fazla 3 kez tekrar
+#    denenir; yine olmazsa yalnizca UYARI verilir ve akis devam eder —
+#    zorunlu kontroller ClamAV + SHA256'dır.
 #
 # NEDEN GitHub Actions'ta: Copr/mock sunucularinda tarama yapmayiz; tüm güvenlik
 # kontrolü GitHub sanal makinesinde, paket Copr'a GÖNDERILMEDEN önce tamamlanir.
@@ -23,8 +24,7 @@ REPORT="clamav-report-$(echo "$TARGET" | tr '/ ' '__').txt"
 
 echo "::group::1/3 — ClamAV veritabanı güncellemesi"
 # Runner imgesinde arka planda çalisabilen freshclam servisi log kilidi tutar;
-# önce durdurulup beklenir, sonra güncelleme kendi log dosyuna degil stderr'e
-# yazilir (log kilidi hatasi tamamen ortadan kalkar).
+# önce durdurulur, sonra güncelleme kendi log dosyuna degil stderr'e yazilir.
 sudo systemctl stop clamav-freshclam 2>/dev/null || true
 sudo pkill -x freshclam 2>/dev/null || true
 sleep 2
@@ -52,18 +52,52 @@ if [ -z "${VT_API_KEY:-}" ]; then
     exit 0
 fi
 
-total=$(find "$TARGET" -type f | wc -l)
+# Aday seçimi: yalnizca çalistirilabilir ikililer ve paylaşimli kütüphaneler.
+# .py/.ui gibi kaynak metinler VT veritabaninda neredeyse hic eşleşmez;
+# kotayi gereksiz tüketirler, risk de tasi mazlar. ClamAV zaten hepsini taradi.
+# Boyuta göre büyükten küçüğe sirala: kota daralirsa en kritikler (FreeCAD
+# ikilisi, Qt/lib kütüphaneleri) ilk sorgulanir.
+find "$TARGET" -type f \( -perm /111 -o -name '*.so' -o -name '*.so.*' \) \
+    -printf '%s %p\n' | sort -rn > /tmp/vt-candidates.txt
+total=$(wc -l < /tmp/vt-candidates.txt)
+echo "VT adayi ikili/kütüphane sayisi: $total (dosya YÜKLENMEZ, yalnizca SHA256 özeti sorgulanir)"
+mapfile -t files < <(head -n "$VT_MAX_FILES" /tmp/vt-candidates.txt | cut -d' ' -f2-)
 if [ "$total" -gt "$VT_MAX_FILES" ]; then
-    echo "::warning::$total dosya var; ücretsiz VT kotası nedeniyle ilk $VT_MAX_FILES dosya sorgulanıyor."
+    echo "::notice::Kota korumasi: ilk $VT_MAX_FILES aday sorgulaniyor (büyükten küçüğe sirali)."
 fi
-mapfile -t files < <(find "$TARGET" -type f | sort | head -n "$VT_MAX_FILES")
 
 vt_failed=0
+vt_consec_429=0
 for f in "${files[@]}"; do
+    [ -f "$f" ] || continue
     sha=$(sha256sum "$f" | awk '{print $1}')
-    code=$(curl -sS -o vt-response.json -w "%{http_code}" --max-time 30 \
-        -H "x-apikey: $VT_API_KEY" \
-        "https://www.virustotal.com/api/v3/files/$sha" 2>/dev/null || echo "000")
+
+    # 429 (kota) alirsak 30 sn bekleyip en fazla 3 kez tekrar dene.
+    # Üst üste 5 dosyada da kota devam ederse VT adimini TAMAMEN atla:
+    # günlük kota bitmiş demektir, kalan dosyaları bekletmenin anlami yok.
+    attempt=0
+    while :; do
+        code=$(curl -sS -o vt-response.json -w "%{http_code}" --max-time 30 \
+            -H "x-apikey: $VT_API_KEY" \
+            "https://www.virustotal.com/api/v3/files/$sha" 2>/dev/null || echo "000")
+        if [ "$code" != "429" ]; then
+            vt_consec_429=0
+            break
+        fi
+        vt_consec_429=$((vt_consec_429 + 1))
+        if [ "$vt_consec_429" -ge 5 ]; then
+            echo "::warning::VirusTotal kotasi üst üste $vt_consec_429 dosyada da dolu; VT adimi atlaniyor."
+            echo "::warning::Zorunlu kontroller (ClamAV + SHA256) geçti; yayin sürüyor."
+            exit 0
+        fi
+        if [ "$attempt" -ge 3 ]; then
+            break
+        fi
+        attempt=$((attempt + 1))
+        echo "::notice::VT kotasi dolu (429); 30 sn bekleniyor (tekrar $attempt/3): $(basename "$f")"
+        sleep 30
+    done
+
     case "$code" in
         200)
             mal=$(jq -r '.data.attributes.last_analysis_stats.malicious // 0' vt-response.json)
