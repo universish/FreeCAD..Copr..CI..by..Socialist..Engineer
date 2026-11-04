@@ -149,12 +149,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Araçlar
         run: sudo apt-get update && sudo apt-get install -y rpm jq curl
-      - name: Payload'ları indir
+      # Her artefakt kendi mimari alt dizinine iner; upload-artifact dizin
+      # İÇERİĞİNİ paketler, bu yüzden hedef yol artefakt adıyla eşleşmelidir.
+      - name: x86_64 payload'unu indir
         uses: actions/download-artifact@v4
         with:
-          pattern: payload-*
-          path: payload
-          merge-multiple: true
+          name: payload-x86_64
+          path: payload/x86_64
+      - name: aarch64 payload'unu indir
+        uses: actions/download-artifact@v4
+        with:
+          name: payload-aarch64
+          path: payload/aarch64
       - name: SRPM derle
         env:
           PKG:     ${{ needs.gate.outputs.pkg }}
