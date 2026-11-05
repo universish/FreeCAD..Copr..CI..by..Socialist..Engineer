@@ -4,6 +4,8 @@
 # ikili adı freecad-can, kurulum dizini /opt/freecad-candidate'dir.
 # Bu spec KAYNAKTAN DERLEME YAPMAZ.
 
+%global __brp_python_bytecompile %{nil}
+
 %global debug_package %{nil}
 
 # RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde

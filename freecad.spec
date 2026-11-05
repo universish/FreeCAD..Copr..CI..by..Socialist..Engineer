@@ -7,6 +7,8 @@
 #   sed -e "s/@VERSION@/26.3/g" -e "s/@RELEASE@/1/g" freecad.spec > /tmp/freecad.spec
 #   rpmbuild -bs /tmp/freecad.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
 
+%global __brp_python_bytecompile %{nil}
+
 %global debug_package %{nil}
 
 # RPATH denetimi KAPALI: upstream önceden derlenmiş yükü conda/pixi derleme
