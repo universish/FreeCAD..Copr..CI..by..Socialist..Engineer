@@ -35,10 +35,15 @@ else
     echo "::warning::Upstream SHA256 dosyası bulunamadı; yalnızca TLS bütünlüğüne güvenildi."
 fi
 
-# --- zsync (opsiyonel; RPM içine gömülecek) ---
+# --- zsync (opsiyonel; RPM içine gömülecek ve veri tasarrufu sağlayacak) ---
 if [ -n "${ZSYNC_URL:-}" ]; then
-    curl -fsSL -o "dist/$ARCH/$fname.zsync" "$ZSYNC_URL" \
-        || echo "::warning::zsync indirilemedi (kritik değil, atlanıyor)."
+    # Zsync sunucuda yoksa veya 404 dönerse hata vermeden atlansın.
+    curl -fL --retry 3 --retry-delay 2 -o "dist/$ARCH/$fname.zsync" "$ZSYNC_URL" \
+        || echo "::warning::zsync dosyası Github Release'de bulunamadı (atlaniyor)."
+else
+    # Eğer doğrudan url verilmediyse dosya adından türetmeyi dene
+    curl -fL --retry 2 -o "dist/$ARCH/$fname.zsync" "${ASSET_URL}.zsync" \
+        || echo "::warning::varsayilan zsync dosyasi da bulunamadi."
 fi
 echo "::endgroup::"
 

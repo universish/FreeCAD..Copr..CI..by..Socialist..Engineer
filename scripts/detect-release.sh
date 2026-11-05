@@ -189,11 +189,23 @@ if [ -f "$state_file" ]; then
     prev_release=$(jq -r '.release // 0' "$state_file")
 fi
 
-if [ -n "$FORCE_VERSION" ] || [ "$prev_version" != "$version" ]; then
+if [ "$prev_version" != "$version" ]; then
+    # Yepyeni bir upstream sürümü yayınlanmış, paketleme sayacını 1'den başlat
     changed="true"; release_no=1
 else
-    changed="false"; release_no=$((prev_release + 1))
+    # Upstream sürüm aynı (değişmemiş). 
+    if [ "${GITHUB_EVENT_NAME:-}" = "workflow_dispatch" ] || [ -n "$FORCE_VERSION" ]; then
+        # Kullanıcı Github arayüzünden manuel tetiklemiş (örneğin spec hatasını düzeltip paketi güncellemek istiyor).
+        # İş akışını devam ettir ve paketleme sayacını (release) +1 artır.
+        changed="true"
+        release_no=$((prev_release + 1))
+    else
+        # Cron veya webhook tetiklemiş, ancak yeni sürüm yok. İş akışını durdur.
+        changed="false"
+        release_no=$((prev_release + 1))
+    fi
 fi
+
 echo "Önceki : $prev_version-$prev_release  ->  Yeni: $version-$release_no (changed=$changed)"
 echo "::endgroup::"
 

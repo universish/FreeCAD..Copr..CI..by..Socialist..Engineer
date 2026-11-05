@@ -62,8 +62,13 @@ echo "Seçilen payload: $PAYLOAD"
 
 cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
 cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
-cp -a "$PAYLOAD"/usr/share/applications/* %{buildroot}%{_datadir}/applications/
+# Dosyaları kopyalarken desktop dosyasının adını pakete uygun yap
+cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
+
+# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
+sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
+
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
 

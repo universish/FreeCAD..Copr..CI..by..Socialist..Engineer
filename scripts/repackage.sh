@@ -121,11 +121,13 @@ done
 # Lisans dosyalarini pakete dahil et.
 find "$ROOT/opt/$PKG" -maxdepth 2 -iname 'LICENSE*' -o -maxdepth 2 -iname 'COPYING*' 2>/dev/null | head -5 || true
 
-# zsync fark-indirme dosyasini pakete göm (kullanici 'zsync' ile kotadan tasarruf eder).
-if [ -f "dist/$ARCH/$FNAME.zsync" ]; then
+# zsync fark-indirme dosyasini pakete göm (kullanici update komutu ile kotadan tasarruf eder).
+if ls dist/$ARCH/*.zsync 1> /dev/null 2>&1; then
     mkdir -p "$ROOT/opt/$PKG/updates"
-    cp "dist/$ARCH/$FNAME.zsync" "$ROOT/opt/$PKG/updates/"
-    echo "zsync gömüldü: $FNAME.zsync"
+    cp dist/$ARCH/*.zsync "$ROOT/opt/$PKG/updates/"
+    echo "zsync fark-indirme dosyasi pakete eklendi."
+else
+    echo "::warning::Paketlenecek zsync dosyasi dist klasöründe bulunamadi."
 fi
 
 echo "Payload özeti ($ARCH):"
