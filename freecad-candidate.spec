@@ -4,9 +4,15 @@
 # ikili adı freecad-can, kurulum dizini /opt/freecad-candidate'dir.
 # Bu spec KAYNAKTAN DERLEME YAPMAZ.
 
+# Otomatik Python byte-compile (pyc üretme) işlemini tamamen devredışı bırakır.
 %global __brp_python_bytecompile %{nil}
+%global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
 
-%global debug_package %{nil}
+# Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
+# %global debug_package %{nil}
+
+# RPM'in binary dosyaları strip ederek (kırparak) bozmasını engeller.
+# %global __strip /bin/true
 
 # RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde
 # hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.

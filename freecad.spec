@@ -7,9 +7,15 @@
 #   sed -e "s/@VERSION@/26.3/g" -e "s/@RELEASE@/1/g" freecad.spec > /tmp/freecad.spec
 #   rpmbuild -bs /tmp/freecad.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
 
+# Otomatik Python byte-compile (pyc üretme) işlemini tamamen devredışı bırakır.
 %global __brp_python_bytecompile %{nil}
+%global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
 
-%global debug_package %{nil}
+# Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
+# %global debug_package %{nil}
+
+# RPM'in binary dosyaları strip ederek (kırparak) bozmasını engeller.
+# %global __strip /bin/true
 
 # RPATH denetimi KAPALI: upstream önceden derlenmiş yükü conda/pixi derleme
 # ortamında üretiyor; libtcl8.6/libtk8.6 içine o makinelerin mutlak yolları
