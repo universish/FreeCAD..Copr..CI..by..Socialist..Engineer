@@ -1,8 +1,10 @@
-# Copr chroot adları — copr-cli ile derlemelerin hedeflediği dağıtım/mimari çiftleri.
-# Güncel ve kesin liste için:  copr-cli list-chroots
-# Satır başındaki '#' yorum satırıdır; boş satırlar yok sayılır.
-# Copr projenizde etkin olmayan bir chroot verilirse build uyarı verir, akış durmaz
-# (yine de listeyi kendi projenizle eşitlemeniz önerilir).
+# Copr chroot adları — 2026-11-05 tarihinde "copr-cli list-chroots" çiktisiyla
+# birebir doğrulanmiştir. Adlar değişirse güncelleme yolu:
+#   copr-cli list-chroots | grep -iE 'fedora|epel|alma|centos|mageia|opensuse|openeuler'
+# Satir başindaki '#' yorum satiridir; bos satirlar yok sayilir.
+# Not: Alma 10 için aarch64 chroot'u YOKTUR (yalniz x86_64_v2 vardir).
+# İş akışi yine de listede olmayan adlari canli Copr listesiyle dogrulayip
+# geçersiz olanlari uyariyla atlar; bu dosya yalnizca hedeflerin kaynagidir.
 
 # --- Fedora ---
 fedora-44-x86_64
@@ -14,27 +16,25 @@ fedora-rawhide-aarch64
 fedora-eln-x86_64
 fedora-eln-aarch64
 
-# --- EPEL (RHEL ve klonları) ---
+# --- EPEL ---
 epel-9-x86_64
 epel-9-aarch64
 epel-10-x86_64
 epel-10-aarch64
 
 # --- AlmaLinux ---
-# Not: Alma 10 için x86_64_v2 tabanı Copr'da x86_64 chroot'uyla temsil edilir.
+# Alma 10 = x86_64_v2 (düz x86_64 adi geçersizdir); aarch64 chroot'u yoktur.
 almalinux-9-x86_64
 almalinux-9-aarch64
-almalinux-10-x86_64
-almalinux-10-aarch64
-# Alma + EPEL birleşik chroot adları Copr sürümüne göre değişebilir;
-# doğrulamak için: copr-cli list-chroots | grep -i alma
-almalinux+epel-9-x86_64
-almalinux+epel-9-aarch64
-almalinux+epel-10-x86_64
+almalinux-10-x86_64_v2
+alma+epel-9-x86_64
+alma+epel-9-aarch64
+alma+epel-10-x86_64_v2
+# Kitten: düz x86_64/aarch64 formlari geçerlidir (v2 soneki YOK).
 almalinux-kitten-10-x86_64
 almalinux-kitten-10-aarch64
-almalinux-kitten+epel-10-x86_64
-almalinux-kitten+epel-10-aarch64
+alma-kitten+epel-10-x86_64
+alma-kitten+epel-10-aarch64
 
 # --- CentOS Stream ---
 centos-stream-9-x86_64
@@ -52,6 +52,6 @@ opensuse-leap-16.0-aarch64
 mageia-10-x86_64
 mageia-10-aarch64
 
-# --- openEuler (Copr desteği sınırlı olabilir; doğrulayın) ---
-# openeuler-24.03-x86_64
-# openeuler-24.03-aarch64
+# --- openEuler ---
+openeuler-24.03-x86_64
+openeuler-24.03-aarch64
