@@ -1,7 +1,7 @@
 # freecad.spec — FreeCAD KARARLI sürümü.
 # Upstream önceden derlenmiş Linux sürümünü (rpm > deb > AppImage önceliğiyle)
 # yeniden paketler. Bu spec KAYNAKTAN DERLEME YAPMAZ; Copr yalnızca src.rpm'i
-# her chroot'ta %%{_arch} payload'uyla derler.
+# her chroot'ta payload ile derler.
 #
 # Yerelde kullanım:
 #   sed -e "s/@VERSION@/26.3/g" -e "s/@RELEASE@/1/g" freecad.spec > /tmp/freecad.spec
@@ -16,6 +16,16 @@
 # Yük /opt altında kendi gömülü kütüphaneleriyle çalisir (wrapper
 # LD_LIBRARY_PATH ayarlar), bu yüzden denetim güvenle kapatılabilir.
 %global __brp_check_rpaths %{nil}
+
+# Shebang denetimi KAPALI: payload'taki çalistirilabilir betiklerin shebang'i
+# upstream conda-forge kalıntısıdır ('/home/conda/.../bin/python3.11' gibi
+# hedefsiz mutlak yollar veya '#!/usr/bin/env python' gibi belirsiz yorum
+# satırları). Fedora/Red Hat ailesinin brp-mangle-shebangs betiği bunları
+# HATA ile düşürür (RHEL9 dokümanı: "generates errors ... ambiguous
+# interpreter directive"; ambiguous python shebang'i build'i fail eder).
+# openSUSE bu betiği çalistirmadigi için orada derleme başarılıydı. Yük
+# kendi python'unu kullanir; repackage.sh shebang'leri zaten düzeltir.
+%global __brp_mangle_shebangs %{nil}
 
 Name:           freecad
 Version:        @VERSION@

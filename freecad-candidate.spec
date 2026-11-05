@@ -10,6 +10,10 @@
 # hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.
 %global __brp_check_rpaths %{nil}
 
+# Shebang denetimi KAPALI: bkz. freecad.spec — payload'taki conda kalıntısı
+# shebang'ler brp-mangle-shebangs'i HATA ile düşürür; repackage.sh düzeltir.
+%global __brp_mangle_shebangs %{nil}
+
 Name:           freecad-candidate
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
@@ -45,10 +49,8 @@ package. The launcher command is 'freecad-can'.
 install -d %{buildroot}/opt %{buildroot}%{_bindir} \
     %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
 
-# Payload seçimi: v2/v3/v4 gibi mikro-mimari chroot'larında (örn.
-# almalinux-10-x86_64_v2) %%{_arch} "x86_64_v2" olur; kaynak ağaçta bu adlı
-# dizin yoktur, x86_64 payload'u kullanılmalı. Önce kendi mimarisi denenir,
-# x86_64* türevlerinde x86_64 yedeğine düşülür, diğerlerinde hata verilir.
+# Payload seçimi: bkz. freecad.spec — mikro-mimari chroot'ları x86_64
+# payload'una yönlendir.
 PAYLOAD="%{_arch}"
 if [ ! -d "$PAYLOAD" ]; then
     case "%{_arch}" in

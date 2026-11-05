@@ -2,8 +2,6 @@
 # repackage.sh — indirilen .rpm/.deb/.AppImage dosyasini açar ve Copr RPM'ine
 # gömülecek normalize edilmis filesystem agacini üretir:
 #
-# Copyrights 2026 (c) universish (Saffet Yavuz)
-# 
 #   payload/$ARCH/opt/$PKG/            (uygulamanin tamamı, gömülü çalisma zamani)
 #   payload/$ARCH/opt/$PKG/updates/    (zsync fark-indirme dosyalari)
 #   payload/$ARCH/usr/bin/$BIN         (başlatici sarmalayici)
@@ -102,6 +100,23 @@ if [ -n "$icon_src" ]; then
 else
     echo "::warning::Upstream simge bulunamadı; simge adımı atlandı."
 fi
+
+# --- Shebang temizligi -----------------------------------------------------
+# Upstream conda-forge ikilileri, çalistirilabilir betiklere derleme makinesinin
+# yollarini shebang olarak gömer ('/home/conda/.../bin/python3.11', yer yer
+# '#!/usr/bin/env python' gibi belirsiz kayitlar). Bunlar hedefsizdir
+# (runtime'da zaten çalismaz) ve Fedora/Red Hat ailesinin brp-mangle-shebangs
+# denetiminde build'i HATA ile düşürür. Python shebang'lerini yükün kendi
+# python3'une (varsa) yoksa env python3'e yönlendir. Böylece spec'te denetim
+# kapali olsa bile payload temiz olur.
+PYBIN="/opt/$PKG/usr/bin/python3"
+[ -x "$ROOT$PYBIN" ] || PYBIN="/usr/bin/env python3"
+find "$ROOT/opt/$PKG" -type f -perm /111 | while IFS= read -r f; do
+    IFS= read -r first < "$f" 2>/dev/null || continue
+    case "$first" in
+        '#!'*python*) sed -i "1s|.*|#!$PYBIN|" "$f" ;;
+    esac
+done
 
 # Lisans dosyalarini pakete dahil et.
 find "$ROOT/opt/$PKG" -maxdepth 2 -iname 'LICENSE*' -o -maxdepth 2 -iname 'COPYING*' 2>/dev/null | head -5 || true
