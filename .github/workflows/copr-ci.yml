@@ -200,12 +200,29 @@ jobs:
           mkdir -p ~/.config
           printf '%s\n' "$COPR_CONFIG" > ~/.config/copr
           chmod 600 ~/.config/copr
-      - name: Tüm chrootlar için derlemeyi başlat
+      # chroots.txt'teki istekler Copr'un GÜNCEL geçerli chroot listesiyle
+      # karşilaştirilir: geçersiz adlar uyariyla atlanir (tek bir yanlis ad
+      # tüm build istegini reddettiremez), geçerli olanlarla derleme başlar.
+      - name: Geçerli chrootları doğrula ve derlemeyi başlat
         run: |
-          mapfile -t chroots < <(grep -Ev '^[[:space:]]*(#|$)' chroots.txt)
-          echo "Hedef chrootlar: ${chroots[*]}"
-          args=()
-          for c in "${chroots[@]}"; do args+=(-r "$c"); done
+          mapfile -t wanted < <(grep -Ev '^[[:space:]]*(#|$)' chroots.txt)
+          copr-cli list-chroots > /tmp/valid-chroots.txt
+          args=(); skipped=()
+          for c in "${wanted[@]}"; do
+            if grep -qx "$c" /tmp/valid-chroots.txt; then
+              args+=(-r "$c")
+            else
+              skipped+=("$c")
+            fi
+          done
+          if [ "${#skipped[@]}" -gt 0 ]; then
+            echo "::warning::Copr'da geçersiz/etkin olmayan chrootlar atlandı: ${skipped[*]}"
+          fi
+          if [ "${#args[@]}" -eq 0 ]; then
+            echo "::error::chroots.txt içindeki hiçbir chroot Copr'da geçerli değil."
+            exit 1
+          fi
+          echo "Hedef chrootlar (${#args[@]} adet): ${args[*]}"
           copr-cli build --nowait --timeout 21600 \
               "${args[@]}" \
               "$COPR_PROJECT" \
