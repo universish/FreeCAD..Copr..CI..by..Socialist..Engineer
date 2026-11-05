@@ -6,6 +6,10 @@
 
 %global debug_package %{nil}
 
+# RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde
+# hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.
+%global __brp_check_rpaths %{nil}
+
 Name:           freecad-candidate
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
@@ -15,17 +19,13 @@ License:        LGPL-2.1-or-later
 URL:            https://www.freecad.org/
 Source0:        %{name}-%{version}.tar.gz
 
-# /opt/freecad-candidate altına gömülü özel kütüphaneler otomatik Requires
-# üretmesin; gerçek sistem bağımlılıkları aşağıda açıkça bildirilir.
+# Gömülü kütüphaneler Requires/Provides üretmesin (bkz. freecad.spec).
 %define __requires_exclude_from ^/opt/%{name}
+%define __provides_exclude_from ^/opt/%{name}
 
+# Yalnızca tüm hedef dağıtımlarda ortak adlar (bkz. freecad.spec).
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
-Requires:       fontconfig
-Requires:       mesa-libGL
-Requires:       mesa-dri-drivers
-Requires:       qt6-qtbase-gui
-Requires:       zlib
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
@@ -38,7 +38,7 @@ package. The launcher command is 'freecad-can'.
 %setup -q
 
 %build
-# Yeniden derleme yok: %{_arch} altındaki normalize edilmiş önceden derlenmiş
+# Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
 # yük doğrudan kullanılır.
 
 %install
@@ -52,7 +52,6 @@ command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
 
 %files
-%dir /opt/%{name}
 /opt/%{name}/
 %{_bindir}/%{name}
 %{_bindir}/freecad-can
@@ -66,3 +65,5 @@ if [ -x %{_bindir}/freecad ]; then
 fi
 
 %changelog
+* Wed Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
+- Repackage upstream prebuilt FreeCAD 1.1.4
