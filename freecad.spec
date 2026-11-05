@@ -60,10 +60,24 @@ hosted on Fedora Copr.
 %install
 install -d %{buildroot}/opt %{buildroot}%{_bindir} \
     %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
-cp -a %{_arch}/opt/* %{buildroot}/opt/
-cp -a %{_arch}/usr/bin/* %{buildroot}%{_bindir}/
-cp -a %{_arch}/usr/share/applications/* %{buildroot}%{_datadir}/applications/
-cp -a %{_arch}/usr/share/icons/* %{buildroot}%{_datadir}/icons/
+
+# Payload seçimi: v2/v3/v4 gibi mikro-mimari chroot'larında (örn.
+# almalinux-10-x86_64_v2) %%{_arch} "x86_64_v2" olur; kaynak ağaçta bu adlı
+# dizin yoktur, x86_64 payload'u kullanılmalı. Önce kendi mimarisi denenir,
+# x86_64* türevlerinde x86_64 yedeğine düşülür, diğerlerinde hata verilir.
+PAYLOAD="%{_arch}"
+if [ ! -d "$PAYLOAD" ]; then
+    case "%{_arch}" in
+        x86_64*) PAYLOAD="x86_64" ;;
+        *) echo "ERROR: %{_arch} için payload yok (yalnızca x86_64/aarch64 var)" >&2; exit 1 ;;
+    esac
+fi
+echo "Seçilen payload: $PAYLOAD"
+
+cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
+cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
+cp -a "$PAYLOAD"/usr/share/applications/* %{buildroot}%{_datadir}/applications/
+cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
 
