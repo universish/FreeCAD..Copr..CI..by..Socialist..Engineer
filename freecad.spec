@@ -75,6 +75,8 @@ hosted on Fedora Copr.
 # Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
 # yük doğrudan kullanılır.
 
+BuildRequires: patchelf
+
 %install
 install -d %{buildroot}/opt %{buildroot}%{_bindir} \
     %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
@@ -98,6 +100,10 @@ cp -a "$PAYLOAD"/usr/share/applications/* %{buildroot}%{_datadir}/applications/
 cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
+    
+export QA_RPATHS=0x0002
+patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtcl8.6.so
+patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
 
 %files
 /opt/%{name}/

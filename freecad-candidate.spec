@@ -53,6 +53,7 @@ package. The launcher command is 'freecad-can'.
 # Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
 # yük doğrudan kullanılır.
 
+BuildRequires: patchelf
 %install
 install -d %{buildroot}/opt %{buildroot}%{_bindir} \
     %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
@@ -79,6 +80,10 @@ sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%
 
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
+
+export QA_RPATHS=0x0002
+patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtcl8.6.so
+patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
 
 %files
 /opt/%{name}/
