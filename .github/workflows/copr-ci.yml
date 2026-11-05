@@ -258,4 +258,7 @@ jobs:
           git add "state/${{ needs.gate.outputs.pkg }}.json"
           git commit -m "ci: ${{ needs.gate.outputs.pkg }} ${{ needs.gate.outputs.version }}-${{ needs.gate.outputs.release }} copr'a gönderildi [skip ci]" \
             || echo "Gönderilecek değişiklik yok"
+          # Is akisi çalışirken kullanici depoya baska commit'ler push etmiş
+          # olabilir; push öncesi rebase ile üstlerine otur, reddedilme olmasin.
+          git pull --rebase --autostash origin main
           git push
