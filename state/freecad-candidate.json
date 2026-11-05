@@ -1,6 +1,6 @@
 {
-  "version": "0.0.0",
-  "release": 0,
-  "upstream_url": "",
-  "updated_at": ""
+  "version": "26.3rc2",
+  "release": 1,
+  "upstream_url": "https://github.com/FreeCAD/FreeCAD/releases/tag/26.3rc2",
+  "updated_at": "2026-11-05T19:22:49Z"
 }
