@@ -5,7 +5,7 @@
 <h1 align="center">FreeCAD Copr CI</h1>
 
 <p align="center">
-  Automated continuous integration pipeline that repackages upstream FreeCAD prebuilt Linux releases into native RPM packages for **openEuler**, Fedora, openSUSE, built and hosted on Fedora Copr.
+  Automated continuous integration pipeline that repackages upstream FreeCAD prebuilt Linux releases into native RPM packages for openEuler and other (Fedora, openSUSE, built and hosted on Fedora Copr).
 </p>
 
 <p align="center">
