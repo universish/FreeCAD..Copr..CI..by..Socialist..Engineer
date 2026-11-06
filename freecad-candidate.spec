@@ -9,7 +9,7 @@
 %global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
 
 # Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
-# %global debug_package %{nil}
+%global debug_package %{nil}
 
 # RPM'in binary dosyaları strip ederek (kırparak) bozmasını engeller.
 # %global __strip /bin/true
