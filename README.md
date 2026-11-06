@@ -9,7 +9,6 @@
 </p>
 
 <p align="center">
-  <img src="https://copr.fedorainfracloud.org/coprs/universish/FreeCAD../package/freecad/status_image/last_build.png" alt="Copr build status" />
   <img src="https://img.shields.io/github/license/universish/FreeCAD..Copr..CI..by..Socialist..Engineer" alt="License" />
   <img src="https://img.shields.io/badge/arch-x86__64%20%7C%20aarch64-blue" alt="Architectures" />
 </p>
