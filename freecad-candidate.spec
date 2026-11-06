@@ -48,6 +48,19 @@ so it can be installed and updated side by side with the stable 'freecad'
 package. The launcher command is 'freecad-can'.
 
 %prep
+# Eğer ortam bir Enterprise Linux (EPEL) ise, EPEL reposunu mock/dnf ortamına ekle
+%if 0%{?rhel} || 0%{?centos} || 0%{?almalinux}
+cat << 'EOF' | sudo tee /etc/yum.repos.d/epel-additional.repo
+[epel-additional]
+name=Extra Packages for Enterprise Linux %{rhel} - $basearch
+baseurl=https://dl.fedoraproject.org/pub/epel/%{rhel}/Everything/$basearch/
+enabled=1
+gpgcheck=0
+EOF
+%endif
+
+%autosetup -n %{name}-%{version}
+
 %setup -q
 
 %build
@@ -84,6 +97,9 @@ command -v desktop-file-validate >/dev/null 2>&1 && \
 export QA_RPATHS=0x0002
 patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtcl8.6.so
 patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
+# Çalıştırılabilir dosyalara gerekli izinleri zorla
+chmod -R +x %{buildroot}/opt/freecad/usr/bin/
+chmod +x %{buildroot}/opt/freecad/AppRun
 
 %files
 /opt/%{name}/
