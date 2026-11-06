@@ -26,7 +26,7 @@ Name:           freecad-candidate
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
 Summary:        General-purpose parametric 3D CAD modeler (release candidate)
-
+Group:          Productivity/Graphics/CAD
 License:        LGPL-2.1-or-later
 URL:            https://www.freecad.org/
 Source0:        %{name}-%{version}.tar.gz
@@ -38,7 +38,14 @@ Source0:        %{name}-%{version}.tar.gz
 # Yalnızca tüm hedef dağıtımlarda ortak adlar (bkz. freecad.spec).
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
+Requires:       hicolor-icon-theme
+Requires:       xdg-utils
 BuildRequires:  patchelf
+BuildRequires:  patchelf
+BuildRequires:  coreutils
+BuildRequires:  rpm-build
+BuildRequires:  bash
+BuildRequires:  sed
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
@@ -85,14 +92,11 @@ echo "Seçilen payload: $PAYLOAD"
 cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
 cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
 
-# Yan yana kurulum için klasörü ve binary dosyasını yeniden adlandırın
-mv %{buildroot}/opt/freecad %{buildroot}/opt/%{name}
-mv %{buildroot}%{_bindir}/freecad %{buildroot}%{_bindir}/freecad-can
-
 # Kısayol (Desktop) kopyalama ve düzenleme
 cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
 
+# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
 sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
 
 command -v desktop-file-validate >/dev/null 2>&1 && \
@@ -106,15 +110,8 @@ patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
 chmod -R +x %{buildroot}/opt/%{name}/usr/bin/
 chmod +x %{buildroot}/opt/%{name}/AppRun
 
-# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
-sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
-
-command -v desktop-file-validate >/dev/null 2>&1 && \
-    desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
-
 %files
 /opt/%{name}/
-%{_bindir}/%{name}
 %{_bindir}/freecad-can
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.*

@@ -39,7 +39,7 @@ Name:           freecad
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
 Summary:        General-purpose parametric 3D CAD modeler
-
+Group:          Productivity/Graphics/CAD
 License:        LGPL-2.1-or-later
 URL:            https://www.freecad.org/
 Source0:        %{name}-%{version}.tar.gz
@@ -57,7 +57,14 @@ Source0:        %{name}-%{version}.tar.gz
 # dağıtımlarda kurulamaz kılar.
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
+Requires:       hicolor-icon-theme
+Requires:       xdg-utils
 BuildRequires:  patchelf
+BuildRequires:  patchelf
+BuildRequires:  coreutils
+BuildRequires:  rpm-build
+BuildRequires:  bash
+BuildRequires:  sed
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to

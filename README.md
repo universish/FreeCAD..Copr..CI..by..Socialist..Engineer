@@ -27,7 +27,7 @@ FreeCAD official [repository](https://github.com/FreeCAD/FreeCAD) — FreeCAD of
 
 FreeCAD is a general-purpose parametric 3D CAD modeler. Parametric modeling allows an engineer to revisit the model history and change design parameters at any point, which makes FreeCAD a serious tool for mechanical engineering, product design, architecture and electronics work — from a quick sketch to production-ready drawings and meshes for 3D printing.
 
-Upstream publishes precompiled Linux artifacts on GitHub Releases (x86_64 and aarch64), but not as distribution-native RPM packages for every ecosystem. Building a CAD application of this size from source inside isolated build environments such as Fedora Mock or Copr is slow and fragile: the dependency surface (OpenCASCADE, VTK, Coin, Boost, Qt, PySide) is enormous and moves quickly.
+Upstream publishes precompiled Linux artifacts on GitHub Releases (x86_64 and aarch64), but not as distribution-native RPM packages for every ecosystem. ..native RPM packages for Fedora, RHEL-compatible distributions, openSUSE and openEuler.. Building a CAD application of this size from source inside isolated build environments such as Fedora Mock or Copr is slow and fragile: the dependency surface (OpenCASCADE, VTK, Coin, Boost, Qt, PySide) is enormous and moves quickly.
 
 This repository solves that problem with a repackaging pipeline rather than a source build:
 
@@ -36,7 +36,7 @@ This repository solves that problem with a repackaging pipeline rather than a so
 3. **Integrity verification** — every artifact is checked against the upstream `-SHA256.txt` checksum file before anything else happens.
 4. **Security scanning** — the extracted payload is scanned in the GitHub Actions runner (never on Copr build servers) with an up-to-date ClamAV database, and every file's SHA-256 is queried against the VirusTotal API. The pipeline halts on any positive detection; a VirusTotal outage only produces a warning.
 5. **Payload normalization** — the application is relocated to `/opt/freecad` (stable) or `/opt/freecad-candidate` (release candidate), with a proper launcher, desktop entry, icons and the upstream `.zsync` delta-update file embedded for quota-friendly updates.
-6. **SRPM generation** — both architectures are combined into a single source RPM with a Fedora spec file; library dependencies are auto-detected by rpmbuild's dependency generator, while hicolor-icon-theme, xdg-utils, mesa and other system dependencies are declared explicitly.
+6. **SRPM generation** — both architectures are combined into a single source RPM with a Fedora spec file; library dependencies are auto-detected by rpmbuild's dependency generator, while hicolor-icon-theme, xdg-utils, mesa and other system dependencies are declared explicitly. For Enterprise Linux targets, EPEL repositories are dynamically injected into the mock environment during the build process to resolve system dependencies without manual Copr chroot configuration.
 7. **Copr dispatch** — the SRPM is submitted with `copr-cli` to all configured chroots (Fedora 44/45/Rawhide/ELN, EPEL 9/10, AlmaLinux, CentOS Stream, Mageia, openSUSE).
 
 The packaging revision (release number) is incremented automatically on every repackaging run (`version-release`), and resets to 1 whenever the upstream version changes, so upgrades always resolve cleanly.
@@ -54,7 +54,7 @@ Weekly development snapshots are never packaged.
 
 ## Installation
 
-### Fedora (44, 45, Rawhide, ELN)
+### Fedora (44, 45, Rawhide)
 
 Enable the Copr repository and install the package:
 
@@ -70,11 +70,18 @@ sudo dnf copr enable universish/FreeCAD..
 sudo dnf install -y freecad-candidate
 ```
 
-### RHEL, AlmaLinux, CentOS Stream, EPEL
+### openEuler 24.03
 
 ```
 sudo dnf copr enable universish/FreeCAD..
 sudo dnf install -y freecad
+```
+
+For the release candidate:
+
+```
+sudo dnf copr enable universish/FreeCAD..
+sudo dnf install -y freecad-candidate
 ```
 
 (Enable EPEL first on RHEL-compatible systems.)
