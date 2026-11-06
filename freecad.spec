@@ -57,6 +57,7 @@ Source0:        %{name}-%{version}.tar.gz
 # dağıtımlarda kurulamaz kılar.
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
+BuildRequires:  patchelf
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
@@ -74,8 +75,6 @@ hosted on Fedora Copr.
 %build
 # Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
 # yük doğrudan kullanılır.
-
-BuildRequires: patchelf
 
 %install
 install -d %{buildroot}/opt %{buildroot}%{_bindir} \

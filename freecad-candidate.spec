@@ -38,6 +38,7 @@ Source0:        %{name}-%{version}.tar.gz
 # Yalnızca tüm hedef dağıtımlarda ortak adlar (bkz. freecad.spec).
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
+BuildRequires:  patchelf
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
@@ -53,7 +54,6 @@ package. The launcher command is 'freecad-can'.
 # Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
 # yük doğrudan kullanılır.
 
-BuildRequires: patchelf
 %install
 install -d %{buildroot}/opt %{buildroot}%{_bindir} \
     %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
