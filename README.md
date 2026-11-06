@@ -5,7 +5,7 @@
 <h1 align="center">FreeCAD Copr CI</h1>
 
 <p align="center">
-  Automated continuous integration pipeline that repackages upstream FreeCAD prebuilt Linux releases into native RPM packages for Fedora,  openSUSE, built and hosted on Fedora Copr.
+  Automated continuous integration pipeline that repackages upstream FreeCAD prebuilt Linux releases into native RPM packages for **openEuler**, Fedora, openSUSE, built and hosted on Fedora Copr.
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@ This repository solves that problem with a repackaging pipeline rather than a so
 3. **Integrity verification** — every artifact is checked against the upstream `-SHA256.txt` checksum file before anything else happens.
 4. **Security scanning** — the extracted payload is scanned in the GitHub Actions runner (never on Copr build servers) with an up-to-date ClamAV database, and every file's SHA-256 is queried against the VirusTotal API. The pipeline halts on any positive detection; a VirusTotal outage only produces a warning.
 5. **Payload normalization** — the application is relocated to `/opt/freecad` (stable) or `/opt/freecad-candidate` (release candidate), with a proper launcher, desktop entry, icons and the upstream `.zsync` delta-update file embedded for quota-friendly updates.
-6. **SRPM generation** — both architectures are combined into a single source RPM with a Fedora spec file; library dependencies are auto-detected by rpmbuild's dependency generator, while hicolor-icon-theme, xdg-utils, mesa and other system dependencies are declared explicitly. For Enterprise Linux targets, EPEL repositories are dynamically injected into the mock environment during the build process to resolve system dependencies without manual Copr chroot configuration.
+6. **SRPM generation** — both architectures are combined into a single source RPM with a Fedora spec file; library dependencies are auto-detected by rpmbuild's dependency generator, while hicolor-icon-theme, xdg-utils, mesa and other system dependencies are declared explicitly.
 7. **Copr dispatch** — the SRPM is submitted with `copr-cli` to all configured chroots (openEuler, Fedora 44/45/Rawhide, openSUSE).
 
 The packaging revision (release number) is incremented automatically on every repackaging run (`version-release`), and resets to 1 whenever the upstream version changes, so upgrades always resolve cleanly.
