@@ -108,8 +108,10 @@ echo "Seçilen payload: $PAYLOAD"
 
 cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
 cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
-cp -a "$PAYLOAD"/usr/share/applications/* %{buildroot}%{_datadir}/applications/
+
+cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
+
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
     
@@ -124,7 +126,7 @@ chmod +x %{buildroot}/opt/freecad/AppRun
 /opt/%{name}/
 %{_bindir}/%{name}
 %{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/*/apps/%{name}.*
+%{_datadir}/icons/hicolor/*/apps/*.*
 
 %post
 # Yan yana kurulum uyarısı: kararlı sürüm kurulurken candidate kuruluysa bilgilendir.

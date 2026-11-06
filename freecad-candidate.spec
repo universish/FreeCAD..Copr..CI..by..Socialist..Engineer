@@ -84,22 +84,33 @@ echo "Seçilen payload: $PAYLOAD"
 
 cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
 cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
-# Dosyaları kopyalarken desktop dosyasının adını pakete uygun yap
+
+# Yan yana kurulum için klasörü ve binary dosyasını yeniden adlandırın
+mv %{buildroot}/opt/freecad %{buildroot}/opt/%{name}
+mv %{buildroot}%{_bindir}/freecad %{buildroot}%{_bindir}/freecad-can
+
+# Kısayol (Desktop) kopyalama ve düzenleme
 cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
 cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
 
-# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
 sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
 
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
 
 export QA_RPATHS=0x0002
-patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtcl8.6.so
-patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
+patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtcl8.6.so
+patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
+
 # Çalıştırılabilir dosyalara gerekli izinleri zorla
-chmod -R +x %{buildroot}/opt/freecad/usr/bin/
-chmod +x %{buildroot}/opt/freecad/AppRun
+chmod -R +x %{buildroot}/opt/%{name}/usr/bin/
+chmod +x %{buildroot}/opt/%{name}/AppRun
+
+# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
+sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
+
+command -v desktop-file-validate >/dev/null 2>&1 && \
+    desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
 
 %files
 /opt/%{name}/
