@@ -5,7 +5,7 @@
 <h1 align="center">FreeCAD Copr CI</h1>
 
 <p align="center">
-  Upstream FreeCAD'in önceden derlenmiş Linux sürümlerini Fedora, RHEL türevleri ve openSUSE için yerli RPM paketlerine dönüştüren otomatik sürekli entegrasyon hattı; derlemeler Fedora Copr üzerinde yapılır ve barındırılır.
+  Upstream FreeCAD'in önceden derlenmiş Linux sürümlerini openEuler, Fedora, openSUSE için yerli RPM paketlerine dönüştüren otomatik sürekli entegrasyon hattı; derlemeler Fedora Copr üzerinde yapılır ve barındırılır.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@ FreeCAD resmî [depo](https://github.com/FreeCAD/FreeCAD) — FreeCAD resmî [we
 
 FreeCAD, genel amaçlı parametrik 3B CAD modelleme yazılımıdır. Parametrik modelleme, mühendisin model geçmişine dönüp tasarım parametrelerini istediği an değiştirebilmesini sağlar; bu da FreeCAD'yi mekanik mühendisliği, ürün tasarımı, mimarlık ve elektronik işlerinde — hızlı bir esketirden üretime hazır teknik resimlere ve 3B baskı mesh'lerine kadar — ciddi bir araç haline getirir.
 
-Upstream, GitHub Releases sayfasında önceden derlenmiş Linux dosyalarını (x86_64 ve aarch64) yayınlar; ancak bunları her ekosistem için dağıtım yerli RPM paketi olarak sunmaz. Fedora, RHEL türevleri, openSUSE ve openEuler için yerli RPM paketlerine dönüştürmek amaçlanmıştır. Bu boyuttaki bir CAD uygulamasını Fedora Mock veya Copr gibi izole derleme ortamlarında kaynaktan derlemek yavaş ve kırılgandır: bağımlılık yüzeyi (OpenCASCADE, VTK, Coin, Boost, Qt, PySide) çok geniştir ve hızla değişir.
+Upstream, GitHub Releases sayfasında önceden derlenmiş Linux dosyalarını (x86_64 ve aarch64) yayınlar; ancak bunları her ekosistem için dağıtım yerli RPM paketi olarak sunmaz. Fedora, openSUSE ve openEuler için yerli RPM paketlerine dönüştürmek amaçlanmıştır. Bu boyuttaki bir CAD uygulamasını Fedora Mock veya Copr gibi izole derleme ortamlarında kaynaktan derlemek yavaş ve kırılgandır: bağımlılık yüzeyi (OpenCASCADE, VTK, Coin, Boost, Qt, PySide) çok geniştir ve hızla değişir.
 
 Bu depo sorunu kaynak derleme yerine yeniden paketleme hattıyla çözer:
 
@@ -37,8 +37,8 @@ Bu depo sorunu kaynak derleme yerine yeniden paketleme hattıyla çözer:
 3. **Bütünlük doğrulaması** — Her dosya, başka hiçbir işlem yapılmadan ÖNCE upstream `-SHA256.txt` sağlama dosyasına karşı denetlenir.
 4. **Güvenlik taraması** — Çıkarılan paket içeriği GitHub Actions sanal makinesinde (Copr derleme sunucularında asla) güncel ClamAV veritabanıyla taranır ve her dosyanın SHA-256 özeti VirusTotal API'sine sorgulanır. Herhangi bir olumlu tespitte hat DURUR; VirusTotal'e erişilemezse yalnızca uyarı verilir.
 5. **İçerik normalize etme** — Uygulama `/opt/freecad` (kararlı) veya `/opt/freecad-candidate` (sürüm adayı) altına taşınır; uygun başlatıcı, masaüstü kaydı, simgeler ve kota dostu güncelleme için upstream `.zsync` dosyası pakete gömülür.
-6. **SRPM üretimi** — Her iki mimari tek bir kaynak RPM'de Fedora spec dosyasıyla birleştirilir; kütüphane bağımlılıkları rpmbuild'in bağımlılık üreteciyle otomatik tespit edilir, hicolor-icon-theme, xdg-utils, mesa ve diğer sistem bağımlılıkları açıkça bildirilir. Enterprise Linux hedefleri (RHEL, AlmaLinux, CentOS) için Copr dışı EPEL bağımlılıkları derleme esnasında mock ortamına dinamik olarak enjekte edilir, böylece platform bağımsız kararlı derlemeler alınır.
-7. **Copr gönderimi** — SRPM, yapılandırılmış tüm chroot'lara (Fedora 44/45/Rawhide/ELN, EPEL 9/10, AlmaLinux, CentOS Stream, Mageia, openSUSE) `copr-cli` ile gönderilir.
+6. **SRPM üretimi** — Her iki mimari tek bir kaynak RPM'de Fedora spec dosyasıyla birleştirilir; kütüphane bağımlılıkları rpmbuild'in bağımlılık üreteciyle otomatik tespit edilir, hicolor-icon-theme, xdg-utils, mesa ve diğer sistem bağımlılıkları açıkça bildirilir.
+7. **Copr gönderimi** — SRPM, yapılandırılmış tüm chroot'lara (Fedora 44/45/Rawhide/, openEular, openSUSE) `copr-cli` ile gönderilir.
 
 Paketleme numarası (release) her yeniden paketlemede otomatik olarak bir artar (`sürüm-paketleme_numarası` biçiminde) ve upstream sürümü değiştiğinde 1'e sıfırlanır; böylece yükseltmeler her zaman sorunsuz çözülür.
 
@@ -83,8 +83,6 @@ Sürüm adayı (beta) için:
 sudo dnf copr enable universish/FreeCAD..
 sudo dnf install -y freecad-candidate
 ```
-
-(RHEL türevi sistemlerde önce EPEL'i etkinleştirin.)
 
 ### openSUSE Tumbleweed ve Leap 16.0
 
@@ -154,8 +152,6 @@ sudo zypper removerepo copr:copr.fedorainfracloud.org:universish:FreeCAD..
 - **Webhook** — `repository_dispatch` olayları; upstream yayın ping'ine anında tepki ve sağlık kontrolü için (aşağıya bakın).
 
 Tüm tetikleyiciler ortak bir concurrency grubunu paylaşır; böylece webhook ve zamanlanmış çalışma aynı sürümü asla iki kez derleyemez ve paketleme numarası sayacında yarışma oluşmaz.
-
-Enterprise Linux hedefleri (RHEL, AlmaLinux, CentOS) için Copr dışı EPEL bağımlılıkları derleme esnasında mock ortamına dinamik olarak enjekte edilir, böylece platform bağımsız kararlı derlemeler alınır.
 
 ### Webhook (isteğe bağlı, önerilir)
 
