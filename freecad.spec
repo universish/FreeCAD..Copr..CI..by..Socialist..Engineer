@@ -14,8 +14,11 @@
 # Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
 %global debug_package %{nil}
 
-# RPM'in binary dosyaları strip ederek (kırparak) bozmasını engeller.
-# %global __strip /bin/true
+# RPM'in binary dosyaları strip ederek bozmasını ve hardlinkleri kırmasını engeller.
+%global __strip /bin/true
+
+# Fedora'nın gereksiz .build-id sembolik bağları ve debug klasörleri üretmesini engeller.
+%global _build_id_links none
 
 # RPATH denetimi KAPALI: upstream önceden derlenmiş yükü conda/pixi derleme
 # ortamında üretiyor; libtcl8.6/libtk8.6 içine o makinelerin mutlak yolları
@@ -60,11 +63,11 @@ Requires:       xdg-utils
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
 BuildRequires:  patchelf
-BuildRequires:  patchelf
 BuildRequires:  coreutils
 BuildRequires:  rpm-build
 BuildRequires:  bash
 BuildRequires:  sed
+BuildRequires:  hardlink
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
@@ -128,6 +131,9 @@ patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
 # Çalıştırılabilir dosyalara gerekli izinleri zorla
 chmod -R +x %{buildroot}/opt/freecad/usr/bin/
 chmod +x %{buildroot}/opt/freecad/AppRun
+
+# Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
+hardlink -c -v %{buildroot}/opt/%{name}
 
 %files
 /opt/%{name}/

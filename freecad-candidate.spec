@@ -11,12 +11,15 @@
 # Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
 %global debug_package %{nil}
 
-# RPM'in binary dosyaları strip ederek (kırparak) bozmasını engeller.
-# %global __strip /bin/true
-
 # RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde
 # hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.
 %global __brp_check_rpaths %{nil}
+
+# RPM'in binary dosyaları strip ederek bozmasını ve hardlinkleri kırmasını engeller.
+%global __strip /bin/true
+
+# Fedora'nın gereksiz .build-id sembolik bağları ve debug klasörleri üretmesini engeller.
+%global _build_id_links none
 
 # Shebang denetimi KAPALI: bkz. freecad.spec — payload'taki conda kalıntısı
 # shebang'ler brp-mangle-shebangs'i HATA ile düşürür; repackage.sh düzeltir.
@@ -41,11 +44,11 @@ Requires:       xdg-utils
 Requires:       hicolor-icon-theme
 Requires:       xdg-utils
 BuildRequires:  patchelf
-BuildRequires:  patchelf
 BuildRequires:  coreutils
 BuildRequires:  rpm-build
 BuildRequires:  bash
 BuildRequires:  sed
+BuildRequires:  hardlink
 
 %description
 FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
@@ -109,6 +112,9 @@ patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
 # Çalıştırılabilir dosyalara gerekli izinleri zorla
 chmod -R +x %{buildroot}/opt/%{name}/usr/bin/
 chmod +x %{buildroot}/opt/%{name}/AppRun
+
+# Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
+hardlink -c -v %{buildroot}/opt/%{name}
 
 %files
 /opt/%{name}/
