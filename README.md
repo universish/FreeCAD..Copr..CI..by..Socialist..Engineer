@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/f/f7/FreeCAD-logo.svg" alt="FreeCAD" width="240" />
+  <img src="https://github.com/universish/FreeCAD..Copr..CI..by..Socialist..Engineer/blob/main/Logo/FreeCAD..Socialist..Engineer_Logo.png?raw=true" alt="FreeCAD" width="240" />
 </p>
 
 <h1 align="center">FreeCAD Copr CI</h1>

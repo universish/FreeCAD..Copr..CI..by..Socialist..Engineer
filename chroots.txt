@@ -5,6 +5,14 @@
 # Copr chroot adları — Kurumsal türevler (EPEL, Alma, CentOS) çıkarılmıştır.
 # Sadece onaylanan güncel ve kararlı dağıtımlar bırakılmıştır.
 
+# --- openEuler ---
+openeuler-24.03-x86_64
+openeuler-24.03-aarch64
+openeuler-22.03-x86_64
+openeuler-22.03-aarch64
+openeuler-20.03-x86_64
+openeuler-20.03-aarch64
+
 # --- Fedora ---
 fedora-44-x86_64
 fedora-44-aarch64
@@ -18,13 +26,5 @@ opensuse-tumbleweed-x86_64
 opensuse-tumbleweed-aarch64
 opensuse-leap-16.0-x86_64
 opensuse-leap-16.0-aarch64
-
-# --- Mageia ---
-mageia-10-x86_64
-mageia-10-aarch64
-
-# --- openEuler ---
-openeuler-24.03-x86_64
-openeuler-24.03-aarch64
 
 
