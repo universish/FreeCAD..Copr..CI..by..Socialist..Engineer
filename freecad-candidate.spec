@@ -6,14 +6,14 @@
 
 # Otomatik Python byte-compile (pyc üretme) işlemini tamamen devredışı bırakır.
 %global __brp_python_bytecompile %{nil}
+# RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde
+# hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.
+%global __brp_check_rpaths %{nil}
+
 %global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
 
 # Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
 %global debug_package %{nil}
-
-# RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde
-# hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.
-%global __brp_check_rpaths %{nil}
 
 # RPM'in binary dosyaları strip ederek bozmasını ve hardlinkleri kırmasını engeller.
 %global __strip /bin/true
@@ -105,9 +105,11 @@ sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%
 command -v desktop-file-validate >/dev/null 2>&1 && \
     desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
 
-export QA_RPATHS=0x0002
-patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtcl8.6.so
-patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
+export QA_RPATHS=$(( 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 ))
+
+find %{buildroot}/opt/freecad-candidate -type f -exec patchelf --remove-rpath {} \; 2>/dev/null || true
+# patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtcl8.6.so
+# patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
 
 # Çalıştırılabilir dosyalara gerekli izinleri zorla
 chmod -R +x %{buildroot}/opt/%{name}/usr/bin/
