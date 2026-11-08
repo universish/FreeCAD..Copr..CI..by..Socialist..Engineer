@@ -135,16 +135,44 @@ chmod +x %{buildroot}/opt/freecad/AppRun
 # Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
 hardlink -c -v %{buildroot}/opt/%{name}
 
+# Kısayol dizinini oluştur
+mkdir -p %{buildroot}/usr/share/applications/
+
+# FreeCAD (Kararlı) için kısayol
+cat <<EOF > %{buildroot}/usr/share/applications/freecad.desktop
+[Desktop Entry]
+Name=FreeCAD
+Comment=Feature based Parametric Modeler
+GenericName=CAD Application
+Exec=/opt/freecad/AppRun - --single-instance %F
+Terminal=false
+Type=Application
+Icon=/opt/freecad/org.freecad.FreeCAD.svg
+Categories=Graphics;Science;Education;Engineering;
+StartupNotify=true
+StartupWMClass=FreeCAD
+MimeType=application/x-extension-fcstd;model/obj;image/vnd.dwg;image/vnd.dxf;model/vnd.collada+xml;application/iges;model/iges;model/step;model/step+zip;model/stl;application/vnd.shp;model/vrml;
+EOF
+
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/*.*
+/usr/share/applications/freecad.desktop
 
 %post
 # Yan yana kurulum uyarısı: kararlı sürüm kurulurken candidate kuruluysa bilgilendir.
 if [ -x %{_bindir}/freecad-can ]; then
     echo "NOTE: freecad-candidate is also installed; both versions share the same user configuration directory." >&2
+fi
+if [ -x /usr/bin/update-desktop-database ]; then
+    /usr/bin/update-desktop-database -q /usr/share/applications/ || true
+fi
+
+%postun
+if [ -x /usr/bin/update-desktop-database ]; then
+    /usr/bin/update-desktop-database -q /usr/share/applications/ || true
 fi
 
 %changelog
