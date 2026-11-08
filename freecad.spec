@@ -3,6 +3,9 @@
 # or prebuilt third-party shared libraries are installed.
 
 %bcond_without tests
+%bcond_without bundled_zipios
+%bcond_with bundled_pycxx
+%bcond_without bundled_smesh
 %bcond_with bundled_gtest
 
 Name:           freecad
@@ -20,7 +23,15 @@ Source0:        freecad-sources.tar.gz
 BuildRequires:  cmake gcc-c++ gettext doxygen swig graphviz gcc-gfortran desktop-file-utils tbb-devel ninja-build
 BuildRequires:  boost-devel Coin4-devel eigen3-devel fmt-devel freeimage-devel libglvnd-devel libicu-devel libspnav-devel libXmu-devel med-devel mesa-libEGL-devel mesa-libGLU-devel netgen-mesher-devel netgen-mesher-devel-private opencascade-devel openmpi-devel python3 python3-devel python3-lark python3-matplotlib python3-pivy python3-pybind11 python3-pyside6-devel python3-shiboken6-devel pyside6-tools qt6-qttools-static qt6-qtsvg-devel vtk-devel xerces-c-devel yaml-cpp-devel
 BuildRequires:  libappstream-glib
-BuildRequires:  smesh-devel zipios++-devel python3-pycxx-devel
+%if %{without bundled_smesh}
+BuildRequires:  smesh-devel
+%endif
+%if %{without bundled_zipios}
+BuildRequires:  zipios++-devel
+%endif
+%if %{without bundled_pycxx}
+BuildRequires:  python3-pycxx-devel
+%endif
 %if %{with tests}
 BuildRequires:  python3-typing-extensions xwayland-run weston
 %if %{without bundled_gtest}
@@ -59,9 +70,15 @@ LDFLAGS='-Wl,--as-needed -Wl,--no-undefined'; export LDFLAGS
     -DFREECAD_USE_PCL:BOOL=OFF \
     -DOpenGL_GL_PREFERENCE=GLVND \
     -DUSE_OCC=TRUE \
+%if %{without bundled_pycxx}
     -DFREECAD_USE_EXTERNAL_PYCXX=TRUE \
+%endif
+%if %{without bundled_smesh}
     -DFREECAD_USE_EXTERNAL_SMESH=TRUE \
+%endif
+%if %{without bundled_zipios}
     -DFREECAD_USE_EXTERNAL_ZIPIOS=TRUE \
+%endif
 %if %{with tests}
 %if %{without bundled_gtest}
     -DFREECAD_USE_EXTERNAL_GTEST=TRUE \

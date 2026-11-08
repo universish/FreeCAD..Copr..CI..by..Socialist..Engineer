@@ -21,9 +21,11 @@ nedeniyle kararlı paketle çakışır. Aynı anda yalnızca bir kanal kurulabil
 GitHub Actions upstream kararlı veya ön sürüm kaynak etiketini seçer, tüm Git
 alt modüllerini indirir, SRPM oluşturur ve SRPM'i Fedora 44, Fedora 45 ve
 Fedora Rawhide Copr chroot'larına (x86_64 ve aarch64) gönderir. Spec dosyaları
-CMake ve dağıtımın geliştirme paketleriyle derleme yapar. Fedora'da bulunan
-zipios++, PyCXX ve SMESH paketleri varsayılan olarak kullanılır. OndselSolver,
-FreeCAD kaynak ağacının bir upstream bileşeni olarak kaynakla birlikte derlenir.
+CMake ve dağıtımın geliştirme paketleriyle derleme yapar. PyCXX ve test
+araçları Fedora RPM'lerinden kurulur. Bu FreeCAD sürümünün ihtiyaç duyduğu
+SMESH ve zipios++ geliştirme paketleri Fedora'da bulunmadığı için bu iki
+bileşen upstream kaynak ağacından derlenir; hazır `.so` dosyaları RPM'e
+kopyalanmaz. OndselSolver da kaynak koddan derlenir.
 
 Yerelde SRPM üretmek için Git alt modülleri hazırlanmış bir FreeCAD checkout'u
 gerekir:

@@ -21,10 +21,11 @@ shared desktop metadata and resource paths. Install one channel at a time.
 GitHub Actions selects an upstream stable or prerelease source tag, checks out
 its recursive Git submodules, creates an SRPM, then submits that SRPM to the
 Fedora 44, Fedora 45, and Fedora Rawhide Copr chroots for x86_64 and aarch64.
-The Fedora spec files use CMake and distro development packages; bundled
-zipios++, PyCXX, and SMESH options are disabled by default where Fedora
-provides the corresponding packages. FreeCAD's OndselSolver remains an
-upstream project component built from the same source tree.
+The Fedora spec files use CMake and distro development packages. PyCXX and
+test tooling use Fedora RPMs. Fedora does not currently provide the SMESH and
+zipios++ development packages required by this FreeCAD release, so those two
+components are built from the upstream source tree; no prebuilt shared objects
+are copied into the RPM. FreeCAD's OndselSolver is also built from source.
 
 Run the SRPM generation step locally from this repository with an initialized
 FreeCAD checkout available as `FREECAD_SOURCE_DIR`:
