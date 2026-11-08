@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# build-srpm.sh — iki mimarinin payload'unu TEK kaynak ağacinda birleştirir
-# ve Fedora spec ile Source RPM (.src.rpm) üretir.
-#
-# Copyrights 2026 (c) universish (Saffet Yavuz)
-# 
-# Kaynak ağaci yapisi:
-#   $PKG-$VERSION/
-#     x86_64/opt/... usr/...
-#     aarch64/opt/... usr/...
-#
-# Spec dosyasi %install adiminda %{_arch} makrosu ile kendi mimarisinin
-# payload'unu seçer; böylece tek bir SRPM Copr'da hem x86_64 hem aarch64
-# chrootlarinda dogru binary üretir.
+# Build an SRPM from an initialized FreeCAD source checkout (including
+# submodules). The resulting Copr build compiles it against distro libraries.
 set -euo pipefail
-: "${PKG:?PKG gerekli}" "${VERSION:?VERSION gerekli}" "${RELEASE:?RELEASE gerekli}"
+: "${PKG:?PKG is required}" "${VERSION:?VERSION is required}" "${RELEASE:?RELEASE is required}"
+: "${FREECAD_SOURCE_DIR:?FREECAD_SOURCE_DIR must point to the FreeCAD checkout}"
 
-TDIR="$PKG-$VERSION"
-rm -rf build SRPMS
-mkdir -p "build/$TDIR" SRPMS
+[[ -f "$FREECAD_SOURCE_DIR/CMakeLists.txt" ]] || {
+    echo "FreeCAD source tree not found at $FREECAD_SOURCE_DIR" >&2
+    exit 1
+}
 
-for arch in x86_64 aarch64; do
-    [ -d "payload/$arch" ] || { echo "::error::payload/$arch eksik"; exit 1; }
-    cp -a "payload/$arch" "build/$TDIR/$arch"
-done
+rm -rf build SRPMS rpmbuild
+mkdir -p build SRPMS
+SOURCE_ARCHIVE="$PWD/freecad-sources.tar.gz"
 
-tar -czf "$TDIR.tar.gz" -C build "$TDIR"
+# Archive tracked source files and checked-out submodules, excluding Git
+# metadata. -C keeps the source root at archive top level; %setup -c creates
+# the versioned build directory from it.
+submodules=$(git -C "$FREECAD_SOURCE_DIR" submodule status --recursive)
+if grep -Eq '^[+-U]' <<<"$submodules"; then
+    echo "Source checkout has uninitialized or mismatched submodules:" >&2
+    printf '%s\n' "$submodules" >&2
+    exit 1
+fi
+git -C "$FREECAD_SOURCE_DIR" ls-files --recurse-submodules -z \
+    | tar -C "$FREECAD_SOURCE_DIR" --null -T - -czf "$SOURCE_ARCHIVE"
 
 sed -e "s/@VERSION@/${VERSION}/g" \
     -e "s/@RELEASE@/${RELEASE}/g" \
@@ -35,5 +35,4 @@ rpmbuild -bs "build/$PKG.spec" \
     --define "_sourcedir $PWD" \
     --define "_srcrpmdir $PWD/SRPMS"
 
-echo "Üretilen SRPM:"
-ls -lh SRPMS/
+ls -lh SRPMS/*.src.rpm

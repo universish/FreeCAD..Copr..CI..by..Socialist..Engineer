@@ -1,163 +1,130 @@
-# freecad-candidate.spec — FreeCAD ÖN-SÜRÜM (Release Candidate / beta) sürümü.
-# Upstream önceden derlenmiş Linux sürümünü (rpm > deb > AppImage önceliğiyle)
-# yeniden paketler. Kararlı 'freecad' paketiyle YAN YANA kurulabilir:
-# ikili adı freecad-can, kurulum dizini /opt/freecad-candidate'dir.
-# Bu spec KAYNAKTAN DERLEME YAPMAZ.
+# Native Fedora package built from the matching FreeCAD source tag.
+# Source archives include initialized Git submodules; no AppImage/conda runtime
+# or prebuilt third-party shared libraries are installed.
 
-# Otomatik Python byte-compile (pyc üretme) işlemini tamamen devredışı bırakır.
-%global __brp_python_bytecompile %{nil}
-# RPATH denetimi KAPALI: bkz. freecad.spec — upstream conda/pixi yükünde
-# hedefsiz mutlak RPATH kayıtları var; yük gömülü kütüphaneleriyle çalışır.
-%global __brp_check_rpaths %{nil}
-
-%global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
-
-# Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
-%global debug_package %{nil}
-
-# RPM'in binary dosyaları strip ederek bozmasını ve hardlinkleri kırmasını engeller.
-%global __strip /bin/true
-
-# Fedora'nın gereksiz .build-id sembolik bağları ve debug klasörleri üretmesini engeller.
-%global _build_id_links none
-
-# Shebang denetimi KAPALI: bkz. freecad.spec — payload'taki conda kalıntısı
-# shebang'ler brp-mangle-shebangs'i HATA ile düşürür; repackage.sh düzeltir.
-%global __brp_mangle_shebangs %{nil}
+%bcond_without tests
+%bcond_with bundled_gtest
 
 Name:           freecad-candidate
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
-Summary:        General-purpose parametric 3D CAD modeler (release candidate)
-Group:          Productivity/Graphics/CAD
-License:        LGPL-2.1-or-later
+Summary:        General purpose parametric 3D CAD modeler
+License:        LGPL-2.0-or-later
 URL:            https://www.freecad.org/
-Source0:        %{name}-%{version}.tar.gz
+Source0:        freecad-sources.tar.gz
 
-# Gömülü kütüphaneler Requires/Provides üretmesin (bkz. freecad.spec).
-%define __requires_exclude_from ^/opt/%{name}
-%define __provides_exclude_from ^/opt/%{name}
+%global plugins AssemblyApp AssemblyGui CAMSimulator DraftUtils Fem FreeCAD Import Inspection MatGui Materials Measure Mesh MeshPart Part PartDesignGui Path PathApp PathSimulator Points QtUnitGui ReverseEngineering Robot Sketcher Spreadsheet Start Surface TechDraw Web _PartDesign area flatmesh libDriver libDriverDAT libDriverSTL libDriverUNV libE57Format libMEFISTO2 libSMDS libSMESH libSMESHDS libStdMeshers libarea-native tsp_solver
+%global exported_libs libOndselSolver
+%global bundled_ondsel_solver_version 1.0.1
 
-# Yalnızca tüm hedef dağıtımlarda ortak adlar (bkz. freecad.spec).
-Requires:       hicolor-icon-theme
-Requires:       xdg-utils
-Requires:       hicolor-icon-theme
-Requires:       xdg-utils
-BuildRequires:  patchelf
-BuildRequires:  coreutils
-BuildRequires:  rpm-build
-BuildRequires:  bash
-BuildRequires:  sed
-BuildRequires:  hardlink
+BuildRequires:  cmake gcc-c++ gettext doxygen swig graphviz gcc-gfortran desktop-file-utils tbb-devel ninja-build
+BuildRequires:  boost-devel Coin4-devel eigen3-devel fmt-devel freeimage-devel libglvnd-devel libicu-devel libspnav-devel libXmu-devel med-devel mesa-libEGL-devel mesa-libGLU-devel netgen-mesher-devel netgen-mesher-devel-private opencascade-devel openmpi-devel python3 python3-devel python3-lark python3-matplotlib python3-pivy python3-pybind11 python3-pyside6-devel python3-shiboken6-devel pyside6-tools qt6-qttools-static qt6-qtsvg-devel vtk-devel xerces-c-devel yaml-cpp-devel
+BuildRequires:  libappstream-glib
+BuildRequires:  smesh-devel zipios++-devel python3-pycxx-devel
+%if %{with tests}
+BuildRequires:  python3-typing-extensions xwayland-run weston
+%if %{without bundled_gtest}
+BuildRequires:  gtest-devel gmock-devel
+%endif
+%endif
+Requires:       hicolor-icon-theme fmt python3-matplotlib python3-pivy python3-collada python3-pyside6 qt6-assistant python3-typing-extensions python3-defusedxml python3-ply
+Requires(post,postun): desktop-file-utils shared-mime-info
+Provides:       bundled(libondselsolver) = %{bundled_ondsel_solver_version}
+Recommends:     python3-pysolar IfcOpenShell-python3
+Conflicts:      freecad
+
+%global plugin_exclude %( for i in %{plugins}; do echo -n "\\|$i\\(Gui\\)\\?"; done )
+%global lib_exclude %( for i in %{exported_libs}; do echo -n "\\|$i"; done )
+%global __requires_exclude_from ^%{_libdir}/%{name}/(lib|Mod)/.*
+%global __provides_exclude_from ^%{_libdir}/%{name}/Mod/.*
+%global __provides_exclude ^(libFreeCAD.*%{plugin_exclude})\\.so.*
+%global __requires_exclude ^(libFreeCAD.*%{plugin_exclude}%{lib_exclude})\\.so.*
 
 %description
-FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
-design real-life objects of any size. This package contains the upstream
-pre-release (release candidate / beta) build, repackaged into a native RPM
-so it can be installed and updated side by side with the stable 'freecad'
-package. The launcher command is 'freecad-can'.
+FreeCAD is an open-source parametric 3D CAD modeler for mechanical
+engineering, product design, architecture and other engineering fields.
 
 %prep
-# Eğer ortam bir Enterprise Linux (EPEL) ise, EPEL reposunu mock/dnf ortamına ekle
-%if 0%{?rhel} || 0%{?centos} || 0%{?almalinux}
-cat << 'EOF' | sudo tee /etc/yum.repos.d/epel-additional.repo
-[epel-additional]
-name=Extra Packages for Enterprise Linux %{rhel} - $basearch
-baseurl=https://dl.fedoraproject.org/pub/epel/%{rhel}/Everything/$basearch/
-enabled=1
-gpgcheck=0
-EOF
-%endif
-
-%autosetup -n %{name}-%{version}
-
-%setup -q
+%setup -T -a 0 -q -c -n FreeCAD-%{version}
 
 %build
-# Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
-# yük doğrudan kullanılır.
+LDFLAGS='-Wl,--as-needed -Wl,--no-undefined'; export LDFLAGS
+%cmake \
+    -DCMAKE_INSTALL_PREFIX=%{_libdir}/%{name} \
+    -DCMAKE_INSTALL_DOCDIR=%{_docdir}/%{name} \
+    -DCMAKE_INSTALL_INCLUDEDIR=%{_includedir} \
+    -DRESOURCEDIR=%{_datadir}/%{name} \
+    -DFREECAD_QT_VERSION:STRING=6 \
+    -DFREECAD_USE_EXTERNAL_PIVY=TRUE \
+    -DFREECAD_USE_EXTERNAL_FMT=TRUE \
+    -DFREECAD_USE_PCL:BOOL=OFF \
+    -DOpenGL_GL_PREFERENCE=GLVND \
+    -DUSE_OCC=TRUE \
+    -DFREECAD_USE_EXTERNAL_PYCXX=TRUE \
+    -DFREECAD_USE_EXTERNAL_SMESH=TRUE \
+    -DFREECAD_USE_EXTERNAL_ZIPIOS=TRUE \
+%if %{with tests}
+%if %{without bundled_gtest}
+    -DFREECAD_USE_EXTERNAL_GTEST=TRUE \
+%endif
+    -DENABLE_DEVELOPER_TESTS=TRUE \
+%else
+    -DENABLE_DEVELOPER_TESTS=FALSE \
+%endif
+    -DONDSELSOLVER_BUILD_EXE=TRUE \
+    -DBUILD_GUI=TRUE \
+    -G Ninja
+%cmake_build
 
 %install
-install -d %{buildroot}/opt %{buildroot}%{_bindir} \
-    %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
+%cmake_install
+mkdir -p %{buildroot}%{_bindir} %{buildroot}%{_datadir} %{buildroot}%{_metainfodir}
+ln -s ../%{_lib}/%{name}/bin/FreeCAD %{buildroot}%{_bindir}/freecad-can
+ln -s ../%{_lib}/%{name}/bin/FreeCADCmd %{buildroot}%{_bindir}/freecadcmd-can
+rm -rf %{buildroot}%{_libdir}/%{name}/include/E57Format
+rm -rf %{buildroot}%{_includedir}/gmock %{buildroot}%{_includedir}/gtest
+rm -rf %{buildroot}%{_libdir}/%{name}/%{_lib}/cmake %{buildroot}%{_libdir}/%{name}/%{_lib}/pkgconfig
+mv %{buildroot}%{_libdir}/%{name}/share/applications %{buildroot}%{_datadir}/
+sed -i 's/^Exec=.*/Exec=freecad-can %F/; s/^TryExec=.*/TryExec=freecad-can/' %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.desktop
+mv %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.desktop %{buildroot}%{_datadir}/applications/freecad-candidate.desktop
+mv %{buildroot}%{_libdir}/%{name}/share/metainfo/* %{buildroot}%{_metainfodir}/
+mv %{buildroot}%{_libdir}/%{name}/share/icons %{buildroot}%{_datadir}/
+mv %{buildroot}%{_libdir}/%{name}/share/pixmaps %{buildroot}%{_datadir}/
+mv %{buildroot}%{_libdir}/%{name}/share/mime %{buildroot}%{_datadir}/
+mv %{buildroot}%{_libdir}/%{name}/share/thumbnailers %{buildroot}%{_datadir}/
+mv %{buildroot}%{_libdir}/%{name}/share/pkgconfig %{buildroot}%{_datadir}/
 
-# Payload seçimi: bkz. freecad.spec — mikro-mimari chroot'ları x86_64
-# payload'una yönlendir.
-PAYLOAD="%{_arch}"
-if [ ! -d "$PAYLOAD" ]; then
-    case "%{_arch}" in
-        x86_64*) PAYLOAD="x86_64" ;;
-        *) echo "ERROR: %{_arch} için payload yok (yalnızca x86_64/aarch64 var)" >&2; exit 1 ;;
-    esac
-fi
-echo "Seçilen payload: $PAYLOAD"
-
-cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
-cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
-
-# Kısayol (Desktop) kopyalama ve düzenleme
-cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
-cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
-
-# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
-sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
-
-command -v desktop-file-validate >/dev/null 2>&1 && \
-    desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
-
-export QA_RPATHS=$(( 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 ))
-
-find %{buildroot}/opt/freecad-candidate -type f -exec patchelf --remove-rpath {} \; 2>/dev/null || true
-# patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtcl8.6.so
-# patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
-
-# Çalıştırılabilir dosyalara gerekli izinleri zorla
-chmod -R +x %{buildroot}/opt/%{name}/usr/bin/
-chmod +x %{buildroot}/opt/%{name}/AppRun
-
-# Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
-hardlink -c -v %{buildroot}/opt/%{name}
-
-# Kısayol dizinini oluştur
-mkdir -p %{buildroot}/usr/share/applications/
-
-# FreeCAD Candidate (Geliştirme) için kısayol
-cat <<EOF > %{buildroot}/usr/share/applications/freecad-candidate.desktop
-[Desktop Entry]
-Name=FreeCAD Candidate
-Comment=Feature based Parametric Modeler
-GenericName=CAD Application
-Exec=/opt/freecad-candidate/AppRun - --single-instance %F
-Terminal=false
-Type=Application
-Icon=/opt/freecad-candidate/org.freecad.FreeCAD.svg
-Categories=Graphics;Science;Education;Engineering;
-StartupNotify=true
-StartupWMClass=FreeCAD
-MimeType=application/x-extension-fcstd;model/obj;image/vnd.dwg;image/vnd.dxf;model/vnd.collada+xml;application/iges;model/iges;model/step;model/step+zip;model/stl;application/vnd.shp;model/vrml;
-EOF
-
-%files
-/opt/%{name}/
-%{_bindir}/freecad-can
-%{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/*/apps/%{name}.*
-/usr/share/applications/freecad-candidate.desktop
+%check
+desktop-file-validate %{buildroot}%{_datadir}/applications/freecad-candidate.desktop
+%{?fedora:appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml}
 
 %post
-# Yan yana kurulum uyarısı.
-if [ -x %{_bindir}/freecad ]; then
-    echo "NOTE: stable 'freecad' is also installed; both versions share the same user configuration directory." >&2
-fi
-if [ -x /usr/bin/update-desktop-database ]; then
-    /usr/bin/update-desktop-database -q /usr/share/applications/ || true
-fi
+/usr/bin/update-desktop-database &>/dev/null || :
+/usr/bin/update-mime-database %{_datadir}/mime &>/dev/null || :
 
 %postun
-if [ -x /usr/bin/update-desktop-database ]; then
-    /usr/bin/update-desktop-database -q /usr/share/applications/ || true
-fi
+/usr/bin/update-desktop-database &>/dev/null || :
+/usr/bin/update-mime-database %{_datadir}/mime &>/dev/null || :
+
+%files
+%license %{_docdir}/%{name}/LICENSE.html
+%doc %{_docdir}/%{name}/ThirdPartyLibraries.html
+%{_bindir}/freecad-can
+%{_bindir}/freecadcmd-can
+%{_metainfodir}/*
+%dir %{_libdir}/%{name}
+%{_libdir}/%{name}/bin/
+%{_libdir}/%{name}/%{_lib}/
+%{_libdir}/%{name}/Ext/
+%{_libdir}/%{name}/Mod/
+%{_libdir}/%{name}/share/
+%{_datadir}/applications/freecad-candidate.desktop
+%{_datadir}/icons/hicolor/*
+%{_datadir}/pixmaps/*
+%{_datadir}/mime/packages/*
+%{_datadir}/thumbnailers/*
+%{python3_sitelib}/freecad/*
 
 %changelog
-* Wed Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
-- Repackage upstream prebuilt FreeCAD 1.1.4
+* Sun Nov 08 2026 universish <universish@tutamail.com> - @VERSION@-@RELEASE@
+- Build FreeCAD candidate natively against Fedora libraries and Python modules

@@ -1,28 +1,8 @@
-# Copr chroot adları — 2026-11-05 tarihinde "copr-cli list-chroots" çiktisiyla
-# birebir doğrulanmiştir. Adlar değişirse güncelleme yolu:
-#   copr-cli list-chroots | grep -iE 'fedora|epel|alma|centos|mageia|opensuse|openeuler'
-
-# Copr chroot adları — Kurumsal türevler (EPEL, Alma, CentOS) çıkarılmıştır.
-# Sadece onaylanan güncel ve kararlı dağıtımlar bırakılmıştır.
-
-# --- openEuler ---
-openeuler-24.03-x86_64
-openeuler-24.03-aarch64
-openeuler-22.03-x86_64
-openeuler-22.03-aarch64
-
-# --- Fedora ---
+# FreeCAD Fedora source builds; non-Fedora distros have different dependency
+# names and are intentionally not targeted by this Fedora packaging spec.
 fedora-44-x86_64
 fedora-44-aarch64
 fedora-45-x86_64
 fedora-45-aarch64
 fedora-rawhide-x86_64
 fedora-rawhide-aarch64
-
-# --- openSUSE ---
-opensuse-tumbleweed-x86_64
-opensuse-tumbleweed-aarch64
-opensuse-leap-16.0-x86_64
-opensuse-leap-16.0-aarch64
-
-
