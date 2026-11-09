@@ -35,6 +35,11 @@ jobs:
       version: ${{ steps.detect.outputs.version }}
       tag: ${{ steps.detect.outputs.tag }}
       pkg: ${{ steps.detect.outputs.pkg }}
+<<<<<<< HEAD
+=======
+      non_native_pkg: ${{ steps.detect.outputs.non_native_pkg }}
+      appimage_url: ${{ steps.detect.outputs.appimage_url }}
+>>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
       release: ${{ steps.detect.outputs.release }}
       html_url: ${{ steps.detect.outputs.html_url }}
     steps:
@@ -75,6 +80,30 @@ jobs:
           path: SRPMS/*.src.rpm
           retention-days: 14
 
+<<<<<<< HEAD
+=======
+  source-srpm-non-native:
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install RPM build tools
+        run: sudo apt-get update && sudo apt-get install -y rpm wget
+      - name: Create non-native AppImage SRPM
+        env:
+          PKG: ${{ needs.detect.outputs.non_native_pkg }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          RELEASE: ${{ needs.detect.outputs.release }}
+          APPIMAGE_URL: ${{ needs.detect.outputs.appimage_url }}
+        run: ./scripts/build-srpm-non-native.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: srpm-non-native
+          path: SRPMS/*.src.rpm
+          retention-days: 14
+
+>>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
   copr:
     needs: [detect, source-srpm]
     if: needs.detect.outputs.changed == 'true'
