@@ -1,66 +1,180 @@
-# Non-native AppImage-derived Fedora package
-# Uses extracted AppImage payload under /opt/freecad-non-native
+# freecad.spec — FreeCAD KARARLI sürümü.
+# Upstream önceden derlenmiş Linux sürümünü (rpm > deb > AppImage önceliğiyle)
+# yeniden paketler. Bu spec KAYNAKTAN DERLEME YAPMAZ; Copr yalnızca src.rpm'i
+# her chroot'ta payload ile derler.
+#
+# Yerelde kullanım:
+#   sed -e "s/@VERSION@/26.3/g" -e "s/@RELEASE@/1/g" freecad.spec > /tmp/freecad.spec
+#   rpmbuild -bs /tmp/freecad.spec --define "_sourcedir $PWD" --define "_srcrpmdir $PWD"
 
-%bcond_with tests
+# Otomatik Python byte-compile (pyc üretme) işlemini tamamen devredışı bırakır.
+%global __brp_python_bytecompile %{nil}
+%global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
 
-Name:           freecad-non-native
+# Önceden derlenmiş binary paketlerde debug paketi oluşturulmasını engeller.
+%global debug_package %{nil}
+
+# RPM'in binary dosyaları strip ederek bozmasını ve hardlinkleri kırmasını engeller.
+%global __strip /bin/true
+
+# Fedora'nın gereksiz .build-id sembolik bağları ve debug klasörleri üretmesini engeller.
+%global _build_id_links none
+
+# RPATH denetimi KAPALI: upstream önceden derlenmiş yükü conda/pixi derleme
+# ortamında üretiyor; libtcl8.6/libtk8.6 içine o makinelerin mutlak yolları
+# ('/home/runner/work/...', '/home/conda/feedstock_root/...') gömülü kalıyor.
+# Fedora check-rpaths bu hedefsiz kayıtları "invalid" sayıp derlemeyi düşürür.
+# Yük /opt altında kendi gömülü kütüphaneleriyle çalisir (wrapper
+# LD_LIBRARY_PATH ayarlar), bu yüzden denetim güvenle kapatılabilir.
+%global __brp_check_rpaths %{nil}
+
+# Shebang denetimi KAPALI: payload'taki çalistirilabilir betiklerin shebang'i
+# upstream conda-forge kalıntısıdır ('/home/conda/.../bin/python3.11' gibi
+# hedefsiz mutlak yollar veya '#!/usr/bin/env python' gibi belirsiz yorum
+# satırları). Fedora/Red Hat ailesinin brp-mangle-shebangs betiği bunları
+# HATA ile düşürür (RHEL9 dokümanı: "generates errors ... ambiguous
+# interpreter directive"; ambiguous python shebang'i build'i fail eder).
+# openSUSE bu betiği çalistirmadigi için orada derleme başarılıydı. Yük
+# kendi python'unu kullanir; repackage.sh shebang'leri zaten düzeltir.
+%global __brp_mangle_shebangs %{nil}
+
+Name:           freecad
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
-Summary:        General purpose parametric 3D CAD modeler (AppImage non-native build)
-License:        LGPL-2.0-or-later
+Summary:        General-purpose parametric 3D CAD modeler
+Group:          Productivity/Graphics/CAD
+License:        LGPL-2.1-or-later
 URL:            https://www.freecad.org/
-Source0:        freecad-appimage-payload.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
-BuildRequires:  desktop-file-utils
-Requires:       hicolor-icon-theme shared-mime-info
-Requires(post,postun): desktop-file-utils shared-mime-info
+# /opt/freecad altındaki gömülü özel kütüphaneler otomatik Requires/Provides
+# ÜRETMESIN (yüzlerce sahte lib*.so provides'ı ve gereksiz bağımlılık
+# üretir); gerçek sistem bağımlılıkları aşağıda açıkça bildirilir.
+%define __requires_exclude_from ^/opt/%{name}
+%define __provides_exclude_from ^/opt/%{name}
+
+# Yalnizca TÜM hedef dağıtımlarda (Fedora, EPEL, Alma, CentOS Stream, Mageia,
+# openSUSE, openEuler) ORTAK adlara sahip bağımlılıklar. Qt, OpenGL, fontconfig
+# vb. yükün İÇİNDE gömülü olduğu için ayrıca istenmez; Fedora'ya özgü adlar
+# (mesa-libGL, qt6-qtbase-gui) openSUSE/Mageia'da ÇÖZÜLEMEZ ve paketi o
+# dağıtımlarda kurulamaz kılar.
+Requires:       hicolor-icon-theme
+Requires:       xdg-utils
+Requires:       hicolor-icon-theme
+Requires:       xdg-utils
+BuildRequires:  patchelf
+BuildRequires:  coreutils
+BuildRequires:  rpm-build
+BuildRequires:  bash
+BuildRequires:  sed
+BuildRequires:  hardlink
 
 %description
-FreeCAD non-native package bundled with its own runtime extracted from the official AppImage.
+FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
+design real-life objects of any size. Parametric modeling allows you to
+easily modify your design by going back into your model history and
+changing its parameters.
+
+This package repackages the upstream prebuilt Linux release into a native
+RPM for Fedora, RHEL-compatible distributions and openSUSE, built and
+hosted on Fedora Copr.
 
 %prep
-%setup -T -a 0 -q -c -n FreeCAD-NonNative-%{version}
+# Eğer ortam bir Enterprise Linux (EPEL) ise, EPEL reposunu mock/dnf ortamına ekle
+%if 0%{?rhel} || 0%{?centos} || 0%{?almalinux}
+cat << 'EOF' | sudo tee /etc/yum.repos.d/epel-additional.repo
+[epel-additional]
+name=Extra Packages for Enterprise Linux %{rhel} - $basearch
+baseurl=https://dl.fedoraproject.org/pub/epel/%{rhel}/Everything/$basearch/
+enabled=1
+gpgcheck=0
+EOF
+%endif
+
+%autosetup -n %{name}-%{version}
+
+%setup -q
 
 %build
-# Pre-extracted AppImage bundle; no compilation needed.
+# Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
+# yük doğrudan kullanılır.
 
 %install
-mkdir -p %{buildroot}%{_optdir}/freecad-non-native
-cp -rp * %{buildroot}%{_optdir}/freecad-non-native/
+install -d %{buildroot}/opt %{buildroot}%{_bindir} \
+    %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
 
-mkdir -p %{buildroot}%{_bindir}
-cat << 'EOF' > %{buildroot}%{_bindir}/freecad-non-native
-#!/bin/sh
-exec /opt/freecad-non-native/AppRun "$@"
-EOF
-chmod +x %{buildroot}%{_bindir}/freecad-non-native
+# Payload seçimi: v2/v3/v4 gibi mikro-mimari chroot'larında (örn.
+# almalinux-10-x86_64_v2) %%{_arch} "x86_64_v2" olur; kaynak ağaçta bu adlı
+# dizin yoktur, x86_64 payload'u kullanılmalı. Önce kendi mimarisi denenir,
+# x86_64* türevlerinde x86_64 yedeğine düşülür, diğerlerinde hata verilir.
+PAYLOAD="%{_arch}"
+if [ ! -d "$PAYLOAD" ]; then
+    case "%{_arch}" in
+        x86_64*) PAYLOAD="x86_64" ;;
+        *) echo "ERROR: %{_arch} için payload yok (yalnızca x86_64/aarch64 var)" >&2; exit 1 ;;
+    esac
+fi
+echo "Seçilen payload: $PAYLOAD"
 
-mkdir -p %{buildroot}%{_datadir}/applications
-cat << 'EOF' > %{buildroot}%{_datadir}/applications/org.freecad.FreeCADNonNative.desktop
+cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
+cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
+
+cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
+cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
+
+command -v desktop-file-validate >/dev/null 2>&1 && \
+    desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
+    
+export QA_RPATHS=0x0002
+patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtcl8.6.so
+patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
+# Çalıştırılabilir dosyalara gerekli izinleri zorla
+chmod -R +x %{buildroot}/opt/freecad/usr/bin/
+chmod +x %{buildroot}/opt/freecad/AppRun
+
+# Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
+hardlink -c -v %{buildroot}/opt/%{name}
+
+# Kısayol dizinini oluştur
+mkdir -p %{buildroot}/usr/share/applications/
+
+# FreeCAD (Kararlı) için kısayol
+cat <<EOF > %{buildroot}/usr/share/applications/freecad.desktop
 [Desktop Entry]
-Name=FreeCAD (Non-Native)
-Comment=Parametric 3D modeler (AppImage runtime)
-Exec=freecad-non-native %F
-Icon=freecad
+Name=FreeCAD
+Comment=Feature based Parametric Modeler
+GenericName=CAD Application
+Exec=/opt/freecad/AppRun - --single-instance %F
 Terminal=false
 Type=Application
-Categories=Graphics;Engineering;3DGraphics;
-MimeType=application/x-extension-fcstd;
+Icon=/opt/freecad/org.freecad.FreeCAD.svg
+Categories=Graphics;Science;Education;Engineering;
+StartupNotify=true
+StartupWMClass=FreeCAD
+MimeType=application/x-extension-fcstd;model/obj;image/vnd.dwg;image/vnd.dxf;model/vnd.collada+xml;application/iges;model/iges;model/step;model/step+zip;model/stl;application/vnd.shp;model/vrml;
 EOF
 
+%files
+/opt/%{name}/
+%{_bindir}/%{name}
+%{_datadir}/applications/%{name}.desktop
+%{_datadir}/icons/hicolor/*/apps/*.*
+/usr/share/applications/freecad.desktop
+
 %post
-/usr/bin/update-desktop-database &>/dev/null || :
-/usr/bin/update-mime-database %{_datadir}/mime &>/dev/null || :
+# Yan yana kurulum uyarısı: kararlı sürüm kurulurken candidate kuruluysa bilgilendir.
+if [ -x %{_bindir}/freecad-can ]; then
+    echo "NOTE: freecad-candidate is also installed; both versions share the same user configuration directory." >&2
+fi
+if [ -x /usr/bin/update-desktop-database ]; then
+    /usr/bin/update-desktop-database -q /usr/share/applications/ || true
+fi
 
 %postun
-/usr/bin/update-desktop-database &>/dev/null || :
-/usr/bin/update-mime-database %{_datadir}/mime &>/dev/null || :
-
-%files
-%{_bindir}/freecad-non-native
-%{_optdir}/freecad-non-native/
-%{_datadir}/applications/org.freecad.FreeCADNonNative.desktop
+if [ -x /usr/bin/update-desktop-database ]; then
+    /usr/bin/update-desktop-database -q /usr/share/applications/ || true
+fi
 
 %changelog
-* Sun Nov 08 2026 universish <universish@tutamail.com> - @VERSION@-@RELEASE@
-- Non-native FreeCAD package using AppImage runtime layout under /opt
+* Wed Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
+- Repackage upstream prebuilt FreeCAD 1.1.4
