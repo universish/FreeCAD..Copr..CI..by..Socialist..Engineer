@@ -51,14 +51,11 @@ version="${tag#v}"
 html_url=$(jq -r '.html_url' <<<"$release")
 if [[ "$channel" == stable ]]; then pkg=freecad; else pkg=freecad-candidate; fi
 
-<<<<<<< HEAD
-=======
 get_appimage_url() {
     local payload="$1"
     jq -r '.assets[]? | select(.browser_download_url|test("\\.AppImage$|\\.appimage$"; "i")) | .browser_download_url' <<<"$payload" | head -n 1
 }
 
->>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
 state_file="$STATE_DIR/$pkg.json"
 previous_version=''; previous_release=0
 previous_packaging='legacy-binary'
@@ -77,8 +74,6 @@ else
     changed=false; release_no=$((previous_release + 1))
 fi
 
-<<<<<<< HEAD
-=======
 appimage_url=$(get_appimage_url "$release")
 if [[ -z "$appimage_url" ]]; then
     echo "::warning::No AppImage asset found for tag $tag; non-native SRPM generation will fail unless APPIMAGE_URL is supplied manually." >&2
@@ -89,7 +84,6 @@ if [[ "$pkg" == "freecad-candidate" ]]; then
     non_native_pkg="freecad-candidate-non-native"
 fi
 
->>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
 printf 'Selected %s source tag %s (%s), package %s-%s-%s, changed=%s\n' \
     "$channel" "$tag" "$html_url" "$pkg" "$version" "$release_no" "$changed"
 {
@@ -98,13 +92,8 @@ printf 'Selected %s source tag %s (%s), package %s-%s-%s, changed=%s\n' \
     echo "tag=$tag"
     echo "channel=$channel"
     echo "pkg=$pkg"
-<<<<<<< HEAD
-    echo "release=$release_no"
-    echo "html_url=$html_url"
-=======
     echo "non_native_pkg=$non_native_pkg"
     echo "release=$release_no"
     echo "html_url=$html_url"
     echo "appimage_url=$appimage_url"
->>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
 } >> "$GITHUB_OUTPUT"

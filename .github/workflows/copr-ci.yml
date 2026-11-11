@@ -1,4 +1,4 @@
-name: FreeCAD native Fedora Copr CI
+name: FreeCAD Fedora Copr CI
 
 on:
   push:
@@ -35,11 +35,8 @@ jobs:
       version: ${{ steps.detect.outputs.version }}
       tag: ${{ steps.detect.outputs.tag }}
       pkg: ${{ steps.detect.outputs.pkg }}
-<<<<<<< HEAD
-=======
       non_native_pkg: ${{ steps.detect.outputs.non_native_pkg }}
       appimage_url: ${{ steps.detect.outputs.appimage_url }}
->>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
       release: ${{ steps.detect.outputs.release }}
       html_url: ${{ steps.detect.outputs.html_url }}
     steps:
@@ -80,8 +77,6 @@ jobs:
           path: SRPMS/*.src.rpm
           retention-days: 14
 
-<<<<<<< HEAD
-=======
   source-srpm-non-native:
     needs: detect
     if: needs.detect.outputs.changed == 'true'
@@ -103,7 +98,6 @@ jobs:
           path: SRPMS/*.src.rpm
           retention-days: 14
 
->>>>>>> 20e77c9 (feat: add native and non-native AppImage/source Fedora RPM packages and automation)
   copr:
     needs: [detect, source-srpm]
     if: needs.detect.outputs.changed == 'true'
