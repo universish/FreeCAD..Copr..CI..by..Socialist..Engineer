@@ -35,8 +35,6 @@ jobs:
       version: ${{ steps.detect.outputs.version }}
       tag: ${{ steps.detect.outputs.tag }}
       pkg: ${{ steps.detect.outputs.pkg }}
-      non_native_pkg: ${{ steps.detect.outputs.non_native_pkg }}
-      appimage_url: ${{ steps.detect.outputs.appimage_url }}
       release: ${{ steps.detect.outputs.release }}
       html_url: ${{ steps.detect.outputs.html_url }}
     steps:
@@ -74,31 +72,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: srpm
-          path: SRPMS/*.src.rpm
-          retention-days: 14
-
-  source-srpm-non-native:
-    needs: detect
-    if: needs.detect.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install RPM build tools
-        run: sudo apt-get update && sudo apt-get install -y rpm wget
-      - name: Create non-native AppImage SRPM
-        env:
-          PKG: ${{ needs.detect.outputs.non_native_pkg }}
-          VERSION: ${{ needs.detect.outputs.version }}
-          RELEASE: ${{ needs.detect.outputs.release }}
-          APPIMAGE_URL: ${{ needs.detect.outputs.appimage_url }}
-        run: |
-          # The corrected AppImage specs are suffixed -1 to distinguish them
-          # from the older native payload specs with the same package names.
-          cp "${PKG}-1.spec" "${PKG}.spec"
-          ./scripts/build-srpm-non-native.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: srpm-non-native
           path: SRPMS/*.src.rpm
           retention-days: 14
 
@@ -141,51 +114,8 @@ jobs:
           copr-cli build --timeout 21600 "${args[@]}" \
             "$COPR_PROJECT" SRPMS/*.src.rpm
 
-  copr-non-native:
-    needs: [detect, source-srpm-non-native]
-    if: needs.detect.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: srpm-non-native
-          path: SRPMS
-      - name: Install Copr CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip python3-venv
-          python3 -m venv "$RUNNER_TEMP/copr-cli"
-          "$RUNNER_TEMP/copr-cli/bin/pip" install copr-cli
-          echo "$RUNNER_TEMP/copr-cli/bin" >> "$GITHUB_PATH"
-      - name: Configure Copr credentials
-        env:
-          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
-        run: |
-          mkdir -p ~/.config
-          printf '%s\n' "$COPR_CONFIG" > ~/.config/copr
-          chmod 600 ~/.config/copr
-      - name: Build non-native AppImage RPM for x86_64 chroots
-        run: |
-          mapfile -t wanted < <(grep -E '^[[:alnum:]-]+-x86_64$' chroots.txt)
-          copr-cli list-chroots > /tmp/valid-chroots.txt
-          args=()
-          for chroot in "${wanted[@]}"; do
-            if grep -qx "$chroot" /tmp/valid-chroots.txt; then
-              args+=(-r "$chroot")
-            else
-              echo "::warning::Configured x86_64 chroot is unavailable: $chroot"
-            fi
-          done
-          if [[ ${#args[@]} -eq 0 ]]; then
-            echo "::error::No configured x86_64 Copr chroots are available."
-            exit 1
-          fi
-          copr-cli build --nowait --timeout 21600 "${args[@]}" \
-            "$COPR_PROJECT" SRPMS/*.src.rpm
-
   finalize:
-    needs: [detect, copr, copr-non-native]
+    needs: [detect, copr]
     runs-on: ubuntu-latest
     permissions:
       contents: write

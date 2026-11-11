@@ -1,12 +1,11 @@
-# FreeCAD Fedora RPMs (Native and Non-Native)
+# FreeCAD Fedora RPMs
 
-This repository provides both native source-built RPMs and non-native AppImage-bundled RPMs for FreeCAD through Copr.
+This repository currently provides native FreeCAD RPMs through Copr. Non-native AppImage packaging is being reworked and is not currently built or published by this workflow.
 
 ## Package model
 
 - Native packages build from the matching upstream source tag and link against Fedora system libraries.
-- Non-native packages use the official AppImage payload extracted with `--appimage-extract` and keep that runtime inside a dedicated `/opt` prefix.
-- These are intentionally separate families, with different binary names, desktop launchers, and package ownership.
+- Non-native AppImage packages will remain a separate package family, with isolated runtime paths and launchers, when their corrected specs are ready.
 
 ## Packages
 
@@ -14,8 +13,6 @@ This repository provides both native source-built RPMs and non-native AppImage-b
 |---|---|---|---|
 | Stable | Native | `freecad` | `FreeCAD` |
 | Prerelease | Native | `freecad-candidate` | `freecad-can` |
-| Stable | Non-Native | `freecad-non-native` | `freecad-non-native` |
-| Prerelease | Non-Native | `freecad-candidate-non-native` | `freecad-can-non-native` |
 
 ## Installation (Fedora)
 
@@ -23,8 +20,6 @@ This repository provides both native source-built RPMs and non-native AppImage-b
 sudo dnf copr enable universish/FreeCAD
 sudo dnf install freecad
 sudo dnf install freecad-candidate
-sudo dnf install freecad-non-native
-sudo dnf install freecad-candidate-non-native
 ```
 
 ## Local build flow
@@ -37,21 +32,11 @@ FREECAD_SOURCE_DIR=/path/to/FreeCAD \
 ./scripts/build-srpm.sh
 ```
 
-### Non-native AppImage build
-
-```bash
-PKG=freecad-non-native VERSION=1.1.4 RELEASE=1 \
-APPIMAGE_URL=https://github.com/FreeCAD/FreeCAD/releases/download/1.1.4/FreeCAD-1.1.4-Linux-x86_64.AppImage \
-./scripts/build-srpm-non-native.sh
-```
-
-The non-native builder downloads the AppImage, extracts it with `--appimage-extract`, and packages the extracted payload while keeping the runtime isolated from the native Fedora library path.
-
 ## Verification
 
 - `bash -n scripts/*.sh` for syntax validation.
 - `rpmlint` on each built RPM with the requirement of 0 errors and 0 warnings.
-- `ldd` validation for native binaries and AppImage runtime tracing for the non-native family.
+- `ldd` validation for native binaries.
 
 ## License
 
