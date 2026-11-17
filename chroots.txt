@@ -5,8 +5,6 @@
 # --- openEuler ---
 openeuler-24.03-x86_64
 openeuler-24.03-aarch64
-openeuler-22.03-x86_64
-openeuler-22.03-aarch64
 
 # --- Fedora ---
 fedora-44-x86_64
