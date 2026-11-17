@@ -1,10 +1,4 @@
-/FreeCAD..Copr..CI..by..Socialist..Engineer-9e1968ee5f5e5640ccbd7286988f3bf4c97ec02a
-/FreeCAD..Copr..CI..by..Socialist..Engineer-9e1968ee5f5e5640ccbd7286988f3bf4c97ec02a/
-FreeCAD..Copr..CI..by..Socialist..Engineer-9e1968ee5f5e5640ccbd7286988f3bf4c97ec02a/
-/FreeCAD-rpm-main
-/FreeCAD-rpm-main/
-FreeCAD-rpm-main/
-
 .env
 .env.*
 !.env.example
+.vscode-ctags
