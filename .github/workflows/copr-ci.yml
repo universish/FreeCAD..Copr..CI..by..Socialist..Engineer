@@ -30,22 +30,12 @@ env:
   COPR_PROJECT: universish/FreeCAD..
 
 jobs:
-  # =========================================================================
-  # AŞAMA 1: Tespit ve Statik Kontroller
-  # =========================================================================
   detect:
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.detect.outputs.changed }}
-      version: ${{ steps.detect.outputs.version }}
-      tag: ${{ steps.detect.outputs.tag }}
-      pkg: ${{ steps.detect.outputs.pkg }}
-      release: ${{ steps.detect.outputs.release }}
-      html_url: ${{ steps.detect.outputs.html_url }}
       native_changed: ${{ steps.detect.outputs.native_changed }}
       non_native_changed: ${{ steps.detect.outputs.non_native_changed }}
-      native_matrix: ${{ steps.detect.outputs.native_matrix }}
-      non_native_matrix: ${{ steps.detect.outputs.non_native_matrix }}
       payload_matrix: ${{ steps.detect.outputs.payload_matrix }}
       stable_enabled: ${{ steps.detect.outputs.stable_enabled }}
       candidate_enabled: ${{ steps.detect.outputs.candidate_enabled }}
@@ -92,12 +82,8 @@ jobs:
           done
           test -s patches/0001-fix-nlohmann-json-include.patch
           test -s patches/0002-find-external-e57format.patch
-          # DÜZELTME: openEuler satırları çıkarıldığı için 14 yerine 12 yapıldı.
           test "$(grep -Ev '^[[:space:]]*(#|$)' chroots.txt | wc -l)" -eq 12
 
-  # =========================================================================
-  # AŞAMA 2: Payload Doğrulama ve Tarama (Non-native için ön hazırlık)
-  # =========================================================================
   build-payload:
     needs: [detect, static-checks]
     if: needs.detect.outputs.non_native_changed == 'true'
@@ -139,26 +125,38 @@ jobs:
           path: payload/${{ matrix.arch }}/
           retention-days: 7
 
-  # =========================================================================
-  # AŞAMA 3A: Source SRPM Oluşturma (NATIVE) - PARALEL ÇALIŞIR
-  # =========================================================================
   source-srpm-native:
-    needs: [detect, static-checks] # build-payload'i BEKLEMEZ, paralel başlar
+    needs: [detect, static-checks]
     if: needs.detect.outputs.native_changed == 'true'
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix: ${{ fromJSON(needs.detect.outputs.native_matrix) }}
-    runs-on: ubuntu-latest
-    name: Native SRPM (${{ matrix.channel }}) # "Native SRPM (stable)" veya "Native SRPM (candidate)" olarak görünür
+      matrix:
+        include:
+          - channel: stable
+            pkg: freecad
+            version: ${{ needs.detect.outputs.stable_version }}
+            tag: ${{ needs.detect.outputs.stable_tag }}
+            release: ${{ needs.detect.outputs.stable_native_release }}
+            html_url: ${{ needs.detect.outputs.stable_html_url }}
+            enabled: ${{ needs.detect.outputs.stable_enabled }}
+            changed: ${{ needs.detect.outputs.stable_native_changed }}
+          - channel: candidate
+            pkg: freecad-candidate
+            version: ${{ needs.detect.outputs.candidate_version }}
+            tag: ${{ needs.detect.outputs.candidate_tag }}
+            release: ${{ needs.detect.outputs.candidate_native_release }}
+            html_url: ${{ needs.detect.outputs.candidate_html_url }}
+            enabled: ${{ needs.detect.outputs.candidate_enabled }}
+            changed: ${{ needs.detect.outputs.candidate_native_changed }}
+    name: Native SRPM (${{ matrix.channel }})
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Debug Native Matrix Content
+      - name: Check if this channel should build
+        if: matrix.changed != 'true' || matrix.enabled != 'true'
         run: |
-          echo "=== NATIVE MATRIX İÇERİĞİ ==="
-          echo '${{ needs.detect.outputs.native_matrix }}' | jq .
-          echo "Eğer burada 2 obje (stable ve candidate) görüyorsanız, GitHub bunları 2 ayrı iş olarak çalıştıracaktır."
-
+          echo "Channel ${{ matrix.channel }} has no changes or is not enabled. Skipping."
+          exit 0
       - name: Fetch the matching FreeCAD source and initialized submodules
         uses: actions/checkout@v4
         with:
@@ -189,9 +187,6 @@ jobs:
           path: SRPMS/*.src.rpm
           retention-days: 14
 
-  # =========================================================================
-  # AŞAMA 3B: Source SRPM Oluşturma (NON-NATIVE)
-  # =========================================================================
   source-srpm-non-native:
     needs: [detect, static-checks, build-payload]
     if: needs.detect.outputs.non_native_changed == 'true'
@@ -203,8 +198,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # DÜZELTME: path'i tekrar mimari klasörüne yönlendirdik. 
-      # Böylece payload/x86_64/AppRun yapısı korunur.
+      # DÜZELTME: path'i mimari klasörüne yönlendir
       - name: Download x86_64 payload
         uses: actions/download-artifact@v4
         with:
@@ -216,7 +210,7 @@ jobs:
         with:
           name: payload-${{ matrix.channel }}-aarch64
           path: payload/aarch64
-        continue-on-error: true # aarch64 her sürümde olmayabilir
+        continue-on-error: true
 
       - name: Debug Payload Structure
         run: |
@@ -225,7 +219,6 @@ jobs:
           echo "=== x86_64 KONTROLÜ ==="
           if [[ -f "payload/x86_64/AppRun" ]]; then
             echo "BAŞARILI: payload/x86_64/AppRun bulundu!"
-            ls -l payload/x86_64/AppRun
           else
             echo "HATA: payload/x86_64/AppRun bulunamadı!"
           fi
@@ -240,7 +233,6 @@ jobs:
           RELEASE: ${{ matrix.release }}
           PAYLOAD_ROOT: payload
         run: |
-          # Her iki mimari için de çalıştırma iznini garantiye al
           for arch in x86_64 aarch64; do
             if [[ -f "payload/$arch/AppRun" ]]; then
               chmod +x "payload/$arch/AppRun"
@@ -255,9 +247,6 @@ jobs:
           path: SRPMS/*.src.rpm
           retention-days: 14
 
-  # =========================================================================
-  # AŞAMA 4: Copr'a Gönderim
-  # =========================================================================
   copr:
     needs: [detect, source-srpm-native]
     if: needs.detect.outputs.native_changed == 'true'
@@ -316,9 +305,6 @@ jobs:
       - name: Submit non-native SRPMs with NVR idempotency checks
         run: ./scripts/submit-copr.sh SRPMS/*.src.rpm
 
-  # =========================================================================
-  # AŞAMA 5: Finalize
-  # =========================================================================
   finalize:
     needs: [detect, copr, copr-non-native]
     if: >-
