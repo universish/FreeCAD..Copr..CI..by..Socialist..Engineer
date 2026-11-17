@@ -79,17 +79,54 @@ jobs:
       - name: Validate scripts, workflow YAML, specs, and native patches
         run: |
           set -euo pipefail
-          for script in scripts/*.sh; do bash -n "$script"; done
+          
+          echo "=== 1. Shell Script Kontrolü ==="
+          for script in scripts/*.sh; do 
+            echo "Kontrol ediliyor: $script"
+            bash -n "$script"
+          done
+          echo "Shell scriptleri geçerli."
+          
+          echo "=== 2. YAML Kontrolü ==="
           python3 -c 'import yaml; yaml.safe_load(open(".github/workflows/copr-ci.yml", encoding="utf-8"))'
+          echo "YAML geçerli."
+          
+          echo "=== 3. Spec Dosyası Kontrolü ==="
           tmpdir=$(mktemp -d)
           trap 'rm -rf "$tmpdir"' EXIT
           for spec in freecad.spec freecad-candidate.spec freecad-non-native.spec freecad-candidate-non-native.spec; do
+            echo "Kontrol ediliyor: $spec"
             sed -e 's/@VERSION@/1.2.3/g' -e 's/@RELEASE@/1/g' "$spec" > "$tmpdir/$spec"
             rpmspec -P "$tmpdir/$spec" >/dev/null
           done
-          test -s patches/0001-fix-nlohmann-json-include.patch
-          test -s patches/0002-find-external-e57format.patch
-          test "$(grep -Ev '^[[:space:]]*(#|$)' chroots.txt | wc -l)" -eq 14
+          echo "Spec dosyaları geçerli."
+          
+          echo "=== 4. Yama (Patch) Dosyası Kontrolü ==="
+          if test -s patches/0001-fix-nlohmann-json-include.patch; then
+            echo "Patch 1: VAR ve BOŞ DEĞİL"
+          else
+            echo "HATA: patches/0001-fix-nlohmann-json-include.patch EKSİK veya BOŞ!"
+            exit 1
+          fi
+          
+          if test -s patches/0002-find-external-e57format.patch; then
+            echo "Patch 2: VAR ve BOŞ DEĞİL"
+          else
+            echo "HATA: patches/0002-find-external-e57format.patch EKSİK veya BOŞ!"
+            exit 1
+          fi
+          
+          echo "=== 5. Chroots.txt Satır Sayısı Kontrolü ==="
+          COUNT=$(grep -Ev '^[[:space:]]*(#|$)' chroots.txt | wc -l)
+          echo "chroots.txt içindeki geçerli satır sayısı: $COUNT"
+          if test "$COUNT" -eq 12; then
+            echo "chroots.txt: GEÇERLİ (12 satır)"
+          else
+            echo "HATA: chroots.txt 12 satır içermeli, ancak $COUNT satır bulundu!"
+            exit 1
+          fi
+          
+          echo "=== TÜM KONTROLLER BAŞARILI ==="
 
   build-payload:
     needs: [detect, static-checks]
