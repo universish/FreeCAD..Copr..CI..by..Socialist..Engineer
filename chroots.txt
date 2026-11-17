@@ -1,5 +1,6 @@
-# FreeCAD Fedora source builds; non-Fedora distros have different dependency
-# names and are intentionally not targeted by this Fedora packaging spec.
+# Native source builds and non-native binary repackaging are built in every
+# configured Copr target below. CI waits for terminal Copr results so native
+# BuildRequires resolution is verified per distribution and architecture.
 
 # --- openEuler ---
 openeuler-24.03-x86_64

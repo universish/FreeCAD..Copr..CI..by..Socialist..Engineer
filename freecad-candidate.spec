@@ -2,7 +2,7 @@
 # Source archives include initialized Git submodules; no AppImage/conda runtime
 # or prebuilt third-party shared libraries are installed.
 
-%bcond_without tests
+%bcond_with tests
 %bcond_without bundled_zipios
 %bcond_with bundled_pycxx
 %bcond_without bundled_smesh
@@ -11,10 +11,12 @@
 Name:           freecad-candidate
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
-Summary:        General purpose parametric 3D CAD modeler
-License:        LGPL-2.0-or-later
+Summary:        General purpose parametric 3D CAD modeler (release candidate)
+License:        LGPL-2.1-or-later AND Zlib AND BSD-3-Clause AND Apache-2.0 AND EUPL-1.2 AND BSL-1.0 AND MIT AND GPL-2.0-or-later AND CC-BY-SA-4.0
 URL:            https://www.freecad.org/
 Source0:        freecad-sources.tar.gz
+Patch0:         0001-fix-nlohmann-json-include.patch
+Patch1:         0002-find-external-e57format.patch
 
 %global plugins AssemblyApp AssemblyGui CAMSimulator DraftUtils Fem FreeCAD Import Inspection MatGui Materials Measure Mesh MeshPart Part PartDesignGui Path PathApp PathSimulator Points QtUnitGui ReverseEngineering Robot Sketcher Spreadsheet Start Surface TechDraw Web _PartDesign area flatmesh libDriver libDriverDAT libDriverSTL libDriverUNV libE57Format libMEFISTO2 libSMDS libSMESH libSMESHDS libStdMeshers libarea-native tsp_solver
 %global exported_libs libOndselSolver
@@ -42,7 +44,6 @@ Requires:       hicolor-icon-theme fmt python3-matplotlib python3-pivy python3-c
 Requires(post,postun): desktop-file-utils shared-mime-info
 Provides:       bundled(libondselsolver) = %{bundled_ondsel_solver_version}
 Recommends:     python3-pysolar IfcOpenShell-python3
-Conflicts:      freecad
 
 %global plugin_exclude %( for i in %{plugins}; do echo -n "\\|$i\\(Gui\\)\\?"; done )
 %global lib_exclude %( for i in %{exported_libs}; do echo -n "\\|$i"; done )
@@ -57,6 +58,8 @@ engineering, product design, architecture and other engineering fields.
 
 %prep
 %setup -T -a 0 -q -c -n FreeCAD-%{version}
+%patch -P0 -p1
+%patch -P1 -p1
 
 %build
 LDFLAGS='-Wl,--as-needed -Wl,--no-undefined'; export LDFLAGS
@@ -96,24 +99,57 @@ LDFLAGS='-Wl,--as-needed -Wl,--no-undefined'; export LDFLAGS
 %install
 %cmake_install
 mkdir -p %{buildroot}%{_bindir} %{buildroot}%{_datadir} %{buildroot}%{_metainfodir}
-ln -s ../%{_lib}/%{name}/bin/FreeCAD %{buildroot}%{_bindir}/freecad-can
-ln -s ../%{_lib}/%{name}/bin/FreeCADCmd %{buildroot}%{_bindir}/freecadcmd-can
+mkdir -p %{buildroot}%{_libdir}/%{name}/python
+if [ -d %{buildroot}%{python3_sitelib}/freecad ]; then
+    mv %{buildroot}%{python3_sitelib}/freecad %{buildroot}%{_libdir}/%{name}/python/
+fi
+cat > %{buildroot}%{_bindir}/freecad-can <<EOF
+#!/bin/sh
+export PYTHONPATH="%{_libdir}/%{name}/python\${PYTHONPATH:+:\$PYTHONPATH}"
+exec %{_libdir}/%{name}/bin/FreeCAD "\$@"
+EOF
+cat > %{buildroot}%{_bindir}/freecadcmd-can <<EOF
+#!/bin/sh
+export PYTHONPATH="%{_libdir}/%{name}/python\${PYTHONPATH:+:\$PYTHONPATH}"
+exec %{_libdir}/%{name}/bin/FreeCADCmd "\$@"
+EOF
+chmod 0755 %{buildroot}%{_bindir}/freecad-can %{buildroot}%{_bindir}/freecadcmd-can
 rm -rf %{buildroot}%{_libdir}/%{name}/include/E57Format
 rm -rf %{buildroot}%{_includedir}/gmock %{buildroot}%{_includedir}/gtest
 rm -rf %{buildroot}%{_libdir}/%{name}/%{_lib}/cmake %{buildroot}%{_libdir}/%{name}/%{_lib}/pkgconfig
 mv %{buildroot}%{_libdir}/%{name}/share/applications %{buildroot}%{_datadir}/
-sed -i 's/^Exec=.*/Exec=freecad-can %F/; s/^TryExec=.*/TryExec=freecad-can/' %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.desktop
-mv %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.desktop %{buildroot}%{_datadir}/applications/freecad-candidate.desktop
+sed -i 's/^Exec=.*/Exec=freecad-can %F/; s/^TryExec=.*/TryExec=freecad-can/; s/^Icon=.*/Icon=org.freecad.FreeCAD.Candidate/' %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.desktop
+mv %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.desktop %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.Candidate.desktop
 mv %{buildroot}%{_libdir}/%{name}/share/metainfo/* %{buildroot}%{_metainfodir}/
+if [ -f %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.metainfo.xml ]; then
+    sed -i 's/org\.freecad\.FreeCAD/org.freecad.FreeCAD.Candidate/g' \
+        %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.metainfo.xml
+    mv %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.metainfo.xml \
+        %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.Candidate.metainfo.xml
+fi
 mv %{buildroot}%{_libdir}/%{name}/share/icons %{buildroot}%{_datadir}/
-mv %{buildroot}%{_libdir}/%{name}/share/pixmaps %{buildroot}%{_datadir}/
+icon_src=$(find %{buildroot}%{_datadir}/icons/hicolor -type f -iname '*FreeCAD*.svg' -print -quit)
+if [ -z "$icon_src" ]; then
+    echo "Candidate FreeCAD SVG icon was not installed" >&2
+    exit 1
+fi
+install -D -m 0644 "$icon_src" \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/org.freecad.FreeCAD.Candidate.svg
+find %{buildroot}%{_datadir}/icons/hicolor -type f \
+    ! -name org.freecad.FreeCAD.Candidate.svg -delete
 mv %{buildroot}%{_libdir}/%{name}/share/mime %{buildroot}%{_datadir}/
+for mime_file in %{buildroot}%{_datadir}/mime/packages/*.xml; do
+    [ -f "$mime_file" ] || continue
+    mv "$mime_file" "${mime_file%.xml}-candidate.xml"
+done
+mv %{buildroot}%{_libdir}/%{name}/share/pixmaps %{buildroot}%{_datadir}/
 mv %{buildroot}%{_libdir}/%{name}/share/thumbnailers %{buildroot}%{_datadir}/
 mv %{buildroot}%{_libdir}/%{name}/share/pkgconfig %{buildroot}%{_datadir}/
+rm -rf %{buildroot}%{_datadir}/pixmaps %{buildroot}%{_datadir}/thumbnailers
 
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/freecad-candidate.desktop
-%{?fedora:appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml}
+desktop-file-validate %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.Candidate.desktop
+%{?fedora:appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.Candidate.metainfo.xml}
 
 %post
 /usr/bin/update-desktop-database &>/dev/null || :
@@ -128,19 +164,17 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/freecad-candidate.des
 %doc %{_docdir}/%{name}/ThirdPartyLibraries.html
 %{_bindir}/freecad-can
 %{_bindir}/freecadcmd-can
-%{_metainfodir}/*
+%{_metainfodir}/org.freecad.FreeCAD.Candidate.metainfo.xml
 %dir %{_libdir}/%{name}
 %{_libdir}/%{name}/bin/
 %{_libdir}/%{name}/%{_lib}/
 %{_libdir}/%{name}/Ext/
 %{_libdir}/%{name}/Mod/
 %{_libdir}/%{name}/share/
-%{_datadir}/applications/freecad-candidate.desktop
-%{_datadir}/icons/hicolor/*
-%{_datadir}/pixmaps/*
-%{_datadir}/mime/packages/*
-%{_datadir}/thumbnailers/*
-%{python3_sitelib}/freecad/*
+%{_datadir}/applications/org.freecad.FreeCAD.Candidate.desktop
+%{_datadir}/icons/hicolor/scalable/apps/org.freecad.FreeCAD.Candidate.svg
+%{_datadir}/mime/packages/*-candidate.xml
+%{_libdir}/%{name}/python/
 
 %changelog
 * Sun Nov 08 2026 universish <universish@tutamail.com> - @VERSION@-@RELEASE@

@@ -25,139 +25,122 @@
 # shebang'ler brp-mangle-shebangs'i HATA ile düşürür; repackage.sh düzeltir.
 %global __brp_mangle_shebangs %{nil}
 
-Name:           freecad-candidate
+Name:           freecad-candidate-non-native
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
 Summary:        General-purpose parametric 3D CAD modeler (release candidate)
 Group:          Productivity/Graphics/CAD
 License:        LGPL-2.1-or-later
 URL:            https://www.freecad.org/
-Source0:        %{name}-%{version}.tar.gz
+Source0:        freecad-payload-x86_64.tar.gz
+Source1:        freecad-payload-aarch64.tar.gz
+ExclusiveArch:  x86_64 aarch64
 
 # Gömülü kütüphaneler Requires/Provides üretmesin (bkz. freecad.spec).
 %define __requires_exclude_from ^/opt/%{name}
 %define __provides_exclude_from ^/opt/%{name}
 
 # Yalnızca tüm hedef dağıtımlarda ortak adlar (bkz. freecad.spec).
-Requires:       hicolor-icon-theme
-Requires:       xdg-utils
-Requires:       hicolor-icon-theme
-Requires:       xdg-utils
-BuildRequires:  patchelf
-BuildRequires:  coreutils
-BuildRequires:  rpm-build
-BuildRequires:  bash
-BuildRequires:  sed
-BuildRequires:  hardlink
+Requires:       hicolor-icon-theme shared-mime-info
+Requires(post,postun): desktop-file-utils shared-mime-info
+BuildRequires:  desktop-file-utils
 
 %description
-FreeCAD is an open-source parametric 3D CAD modeler, made primarily to
-design real-life objects of any size. This package contains the upstream
-pre-release (release candidate / beta) build, repackaged into a native RPM
-so it can be installed and updated side by side with the stable 'freecad'
-package. The launcher command is 'freecad-can'.
+FreeCAD candidate is packaged with the upstream runtime under a separate
+non-native package identity and /opt prefix. It is co-installable with native
+FreeCAD packages.
 
 %prep
-# Eğer ortam bir Enterprise Linux (EPEL) ise, EPEL reposunu mock/dnf ortamına ekle
-%if 0%{?rhel} || 0%{?centos} || 0%{?almalinux}
-cat << 'EOF' | sudo tee /etc/yum.repos.d/epel-additional.repo
-[epel-additional]
-name=Extra Packages for Enterprise Linux %{rhel} - $basearch
-baseurl=https://dl.fedoraproject.org/pub/epel/%{rhel}/Everything/$basearch/
-enabled=1
-gpgcheck=0
-EOF
+%setup -q -c -n %{name}-%{version} -T
+%ifarch x86_64
+tar -xzf %{SOURCE0} -C .
+%elifarch aarch64
+tar -xzf %{SOURCE1} -C .
+%else
+echo "Unsupported architecture: %{_arch}" >&2
+exit 1
 %endif
-
-%autosetup -n %{name}-%{version}
-
-%setup -q
 
 %build
 # Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
 # yük doğrudan kullanılır.
 
 %install
-install -d %{buildroot}/opt %{buildroot}%{_bindir} \
-    %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
-
-# Payload seçimi: bkz. freecad.spec — mikro-mimari chroot'ları x86_64
-# payload'una yönlendir.
-PAYLOAD="%{_arch}"
-if [ ! -d "$PAYLOAD" ]; then
-    case "%{_arch}" in
-        x86_64*) PAYLOAD="x86_64" ;;
-        *) echo "ERROR: %{_arch} için payload yok (yalnızca x86_64/aarch64 var)" >&2; exit 1 ;;
-    esac
-fi
-echo "Seçilen payload: $PAYLOAD"
-
-cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
-cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
-
-# Kısayol (Desktop) kopyalama ve düzenleme
-cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
-cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
-
-# Desktop dosyası içindeki "Exec=freecad" komutunu "Exec=freecad-can" ile değiştir (Masaüstü kısayolu hatasını önler)
-sed -i 's/^Exec=.*/Exec=freecad-can %F/g' %{buildroot}%{_datadir}/applications/%{name}.desktop
-
-command -v desktop-file-validate >/dev/null 2>&1 && \
-    desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
-
-export QA_RPATHS=$(( 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 ))
-
-find %{buildroot}/opt/freecad-candidate -type f -exec patchelf --remove-rpath {} \; 2>/dev/null || true
-# patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtcl8.6.so
-# patchelf --remove-rpath %{buildroot}/opt/%{name}/usr/lib/libtk8.6.so
-
-# Çalıştırılabilir dosyalara gerekli izinleri zorla
-chmod -R +x %{buildroot}/opt/%{name}/usr/bin/
-chmod +x %{buildroot}/opt/%{name}/AppRun
-
-# Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
-hardlink -c -v %{buildroot}/opt/%{name}
-
-# Kısayol dizinini oluştur
-mkdir -p %{buildroot}/usr/share/applications/
-
-# FreeCAD Candidate (Geliştirme) için kısayol
-cat <<EOF > %{buildroot}/usr/share/applications/freecad-candidate.desktop
+install -d %{buildroot}/opt/%{name} %{buildroot}%{_bindir} \
+    %{buildroot}%{_datadir}/applications \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps \
+    %{buildroot}%{_metainfodir}
+cp -a . %{buildroot}/opt/%{name}/
+test -x %{buildroot}/opt/%{name}/AppRun || {
+    echo "Normalized payload must contain executable AppRun" >&2
+    exit 1
+}
+cat > %{buildroot}%{_bindir}/freecad-can-non-native <<'EOF'
+#!/bin/sh
+exec /opt/%{name}/AppRun "$@"
+EOF
+chmod 0755 %{buildroot}%{_bindir}/freecad-can-non-native
+install -m 0644 %{buildroot}/opt/%{name}/freecad-icon.svg \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+cat <<EOF > %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.Candidate.NonNative.desktop
 [Desktop Entry]
-Name=FreeCAD Candidate
-Comment=Feature based Parametric Modeler
+Name=FreeCAD Candidate (Non-Native)
+Comment=FreeCAD candidate with bundled upstream runtime
 GenericName=CAD Application
-Exec=/opt/freecad-candidate/AppRun - --single-instance %F
+Exec=freecad-can-non-native %F
+TryExec=freecad-can-non-native
+Icon=%{name}
 Terminal=false
 Type=Application
-Icon=/opt/freecad-candidate/org.freecad.FreeCAD.svg
 Categories=Graphics;Science;Education;Engineering;
 StartupNotify=true
 StartupWMClass=FreeCAD
-MimeType=application/x-extension-fcstd;model/obj;image/vnd.dwg;image/vnd.dxf;model/vnd.collada+xml;application/iges;model/iges;model/step;model/step+zip;model/stl;application/vnd.shp;model/vrml;
+MimeType=application/x-extension-fcstd;model/step;model/stl;
+EOF
+desktop-file-validate %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.Candidate.NonNative.desktop
+cat > %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.Candidate.NonNative.metainfo.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.freecad.FreeCAD.Candidate.NonNative</id>
+  <name>FreeCAD Candidate (Non-Native)</name>
+  <summary>FreeCAD candidate with the bundled upstream runtime</summary>
+  <description><p>FreeCAD release candidate installed with its bundled upstream Linux runtime.</p></description>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LGPL-2.1-or-later</project_license>
+  <launchable type="desktop-id">org.freecad.FreeCAD.Candidate.NonNative.desktop</launchable>
+  <provides>
+    <binary>freecad-can-non-native</binary>
+  </provides>
+</component>
 EOF
 
 %files
 /opt/%{name}/
-%{_bindir}/freecad-can
-%{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/*/apps/%{name}.*
-/usr/share/applications/freecad-candidate.desktop
+%{_bindir}/freecad-can-non-native
+%{_datadir}/applications/org.freecad.FreeCAD.Candidate.NonNative.desktop
+%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+%{_metainfodir}/org.freecad.FreeCAD.Candidate.NonNative.metainfo.xml
 
 %post
 # Yan yana kurulum uyarısı.
 if [ -x %{_bindir}/freecad ]; then
-    echo "NOTE: stable 'freecad' is also installed; both versions share the same user configuration directory." >&2
+    echo "NOTE: native stable FreeCAD is also installed; package launchers and runtime paths remain separate." >&2
 fi
 if [ -x /usr/bin/update-desktop-database ]; then
     /usr/bin/update-desktop-database -q /usr/share/applications/ || true
+fi
+if [ -x /usr/bin/update-mime-database ]; then
+    /usr/bin/update-mime-database %{_datadir}/mime || true
 fi
 
 %postun
 if [ -x /usr/bin/update-desktop-database ]; then
     /usr/bin/update-desktop-database -q /usr/share/applications/ || true
 fi
+if [ -x /usr/bin/update-mime-database ]; then
+    /usr/bin/update-mime-database %{_datadir}/mime || true
+fi
 
 %changelog
-* Wed Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
+* Thu Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
 - Repackage upstream prebuilt FreeCAD 1.1.4

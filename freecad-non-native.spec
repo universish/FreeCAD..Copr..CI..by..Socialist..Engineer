@@ -38,14 +38,16 @@
 # kendi python'unu kullanir; repackage.sh shebang'leri zaten düzeltir.
 %global __brp_mangle_shebangs %{nil}
 
-Name:           freecad
+Name:           freecad-non-native
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
 Summary:        General-purpose parametric 3D CAD modeler
 Group:          Productivity/Graphics/CAD
 License:        LGPL-2.1-or-later
 URL:            https://www.freecad.org/
-Source0:        %{name}-%{version}.tar.gz
+Source0:        freecad-payload-x86_64.tar.gz
+Source1:        freecad-payload-aarch64.tar.gz
+ExclusiveArch:  x86_64 aarch64
 
 # /opt/freecad altındaki gömülü özel kütüphaneler otomatik Requires/Provides
 # ÜRETMESIN (yüzlerce sahte lib*.so provides'ı ve gereksiz bağımlılık
@@ -59,9 +61,9 @@ Source0:        %{name}-%{version}.tar.gz
 # (mesa-libGL, qt6-qtbase-gui) openSUSE/Mageia'da ÇÖZÜLEMEZ ve paketi o
 # dağıtımlarda kurulamaz kılar.
 Requires:       hicolor-icon-theme
-Requires:       xdg-utils
-Requires:       hicolor-icon-theme
-Requires:       xdg-utils
+Requires:       shared-mime-info
+Requires(post,postun): desktop-file-utils shared-mime-info
+BuildRequires:  desktop-file-utils
 BuildRequires:  patchelf
 BuildRequires:  coreutils
 BuildRequires:  rpm-build
@@ -75,106 +77,97 @@ design real-life objects of any size. Parametric modeling allows you to
 easily modify your design by going back into your model history and
 changing its parameters.
 
-This package repackages the upstream prebuilt Linux release into a native
-RPM for Fedora, RHEL-compatible distributions and openSUSE, built and
-hosted on Fedora Copr.
+This package installs the upstream prebuilt FreeCAD runtime under /opt,
+separate from the native source-built FreeCAD package.
 
 %prep
-# Eğer ortam bir Enterprise Linux (EPEL) ise, EPEL reposunu mock/dnf ortamına ekle
-%if 0%{?rhel} || 0%{?centos} || 0%{?almalinux}
-cat << 'EOF' | sudo tee /etc/yum.repos.d/epel-additional.repo
-[epel-additional]
-name=Extra Packages for Enterprise Linux %{rhel} - $basearch
-baseurl=https://dl.fedoraproject.org/pub/epel/%{rhel}/Everything/$basearch/
-enabled=1
 gpgcheck=0
-EOF
+%setup -q -c -n %{name}-%{version} -T
+%ifarch x86_64
+tar -xzf %{SOURCE0} -C .
+%elifarch aarch64
+tar -xzf %{SOURCE1} -C .
+%else
+echo "Unsupported architecture: %{_arch}" >&2
+exit 1
 %endif
 
-%autosetup -n %{name}-%{version}
-
-%setup -q
-
 %build
-# Yeniden derleme yok: %%{_arch} altındaki normalize edilmiş önceden derlenmiş
-# yük doğrudan kullanılır.
+# The upstream runtime is prebuilt; no compilation is performed.
 
 %install
-install -d %{buildroot}/opt %{buildroot}%{_bindir} \
-    %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons
-
-# Payload seçimi: v2/v3/v4 gibi mikro-mimari chroot'larında (örn.
-# almalinux-10-x86_64_v2) %%{_arch} "x86_64_v2" olur; kaynak ağaçta bu adlı
-# dizin yoktur, x86_64 payload'u kullanılmalı. Önce kendi mimarisi denenir,
-# x86_64* türevlerinde x86_64 yedeğine düşülür, diğerlerinde hata verilir.
-PAYLOAD="%{_arch}"
-if [ ! -d "$PAYLOAD" ]; then
-    case "%{_arch}" in
-        x86_64*) PAYLOAD="x86_64" ;;
-        *) echo "ERROR: %{_arch} için payload yok (yalnızca x86_64/aarch64 var)" >&2; exit 1 ;;
-    esac
-fi
-echo "Seçilen payload: $PAYLOAD"
-
-cp -a "$PAYLOAD"/opt/* %{buildroot}/opt/
-cp -a "$PAYLOAD"/usr/bin/* %{buildroot}%{_bindir}/
-
-cp -a "$PAYLOAD"/usr/share/applications/*.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
-cp -a "$PAYLOAD"/usr/share/icons/* %{buildroot}%{_datadir}/icons/
-
-command -v desktop-file-validate >/dev/null 2>&1 && \
-    desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || true
-    
-export QA_RPATHS=0x0002
-patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtcl8.6.so
-patchelf --remove-rpath %{buildroot}/opt/freecad/usr/lib/libtk8.6.so
-# Çalıştırılabilir dosyalara gerekli izinleri zorla
-chmod -R +x %{buildroot}/opt/freecad/usr/bin/
-chmod +x %{buildroot}/opt/freecad/AppRun
-
-# Kopyalanan tüm aynı/kopya dosyaları birleştir (Deduplication)
-hardlink -c -v %{buildroot}/opt/%{name}
-
-# Kısayol dizinini oluştur
-mkdir -p %{buildroot}/usr/share/applications/
-
-# FreeCAD (Kararlı) için kısayol
-cat <<EOF > %{buildroot}/usr/share/applications/freecad.desktop
+install -d %{buildroot}/opt/%{name} %{buildroot}%{_bindir} \
+    %{buildroot}%{_datadir}/applications \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps \
+    %{buildroot}%{_metainfodir}
+cp -a . %{buildroot}/opt/%{name}/
+test -x %{buildroot}/opt/%{name}/AppRun || {
+    echo "Normalized payload must contain executable AppRun" >&2
+    exit 1
+}
+cat > %{buildroot}%{_bindir}/%{name} <<'EOF'
+#!/bin/sh
+exec /opt/%{name}/AppRun "$@"
+EOF
+chmod 0755 %{buildroot}%{_bindir}/%{name}
+install -m 0644 %{buildroot}/opt/%{name}/freecad-icon.svg \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+cat <<EOF > %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.NonNative.desktop
 [Desktop Entry]
-Name=FreeCAD
-Comment=Feature based Parametric Modeler
+Name=FreeCAD (Non-Native)
+Comment=FreeCAD with bundled upstream runtime
 GenericName=CAD Application
-Exec=/opt/freecad/AppRun - --single-instance %F
+Exec=%{name} %F
+TryExec=%{name}
 Terminal=false
 Type=Application
-Icon=/opt/freecad/org.freecad.FreeCAD.svg
+Icon=%{name}
 Categories=Graphics;Science;Education;Engineering;
 StartupNotify=true
 StartupWMClass=FreeCAD
-MimeType=application/x-extension-fcstd;model/obj;image/vnd.dwg;image/vnd.dxf;model/vnd.collada+xml;application/iges;model/iges;model/step;model/step+zip;model/stl;application/vnd.shp;model/vrml;
+MimeType=application/x-extension-fcstd;model/step;model/stl;
+EOF
+desktop-file-validate %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.NonNative.desktop
+cat > %{buildroot}%{_metainfodir}/org.freecad.FreeCAD.NonNative.metainfo.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.freecad.FreeCAD.NonNative</id>
+  <name>FreeCAD (Non-Native)</name>
+  <summary>FreeCAD with the bundled upstream runtime</summary>
+  <description><p>FreeCAD installed with its bundled upstream Linux runtime.</p></description>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LGPL-2.1-or-later</project_license>
+  <launchable type="desktop-id">org.freecad.FreeCAD.NonNative.desktop</launchable>
+  <provides>
+    <binary>freecad-non-native</binary>
+  </provides>
+</component>
 EOF
 
 %files
 /opt/%{name}/
 %{_bindir}/%{name}
-%{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/*/apps/*.*
-/usr/share/applications/freecad.desktop
+%{_datadir}/applications/org.freecad.FreeCAD.NonNative.desktop
+%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+%{_metainfodir}/org.freecad.FreeCAD.NonNative.metainfo.xml
 
 %post
-# Yan yana kurulum uyarısı: kararlı sürüm kurulurken candidate kuruluysa bilgilendir.
-if [ -x %{_bindir}/freecad-can ]; then
-    echo "NOTE: freecad-candidate is also installed; both versions share the same user configuration directory." >&2
-fi
+# Native and non-native launchers/prefixes are intentionally distinct.
 if [ -x /usr/bin/update-desktop-database ]; then
     /usr/bin/update-desktop-database -q /usr/share/applications/ || true
+fi
+if [ -x /usr/bin/update-mime-database ]; then
+    /usr/bin/update-mime-database %{_datadir}/mime || true
 fi
 
 %postun
 if [ -x /usr/bin/update-desktop-database ]; then
     /usr/bin/update-desktop-database -q /usr/share/applications/ || true
 fi
+if [ -x /usr/bin/update-mime-database ]; then
+    /usr/bin/update-mime-database %{_datadir}/mime || true
+fi
 
 %changelog
-* Wed Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
+* Thu Nov 05 2026 universish <universish@tutamail.com> - 1.1.4-1
 - Repackage upstream prebuilt FreeCAD 1.1.4

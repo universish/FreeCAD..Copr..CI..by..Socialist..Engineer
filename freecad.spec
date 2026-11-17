@@ -2,7 +2,7 @@
 # Source archives include initialized Git submodules; no AppImage/conda runtime
 # or prebuilt third-party shared libraries are installed.
 
-%bcond_without tests
+%bcond_with tests
 %bcond_without bundled_zipios
 %bcond_with bundled_pycxx
 %bcond_without bundled_smesh
@@ -12,9 +12,11 @@ Name:           freecad
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
 Summary:        General purpose parametric 3D CAD modeler
-License:        LGPL-2.0-or-later
+License:        LGPL-2.1-or-later AND Zlib AND BSD-3-Clause AND Apache-2.0 AND EUPL-1.2 AND BSL-1.0 AND MIT AND GPL-2.0-or-later AND CC-BY-SA-4.0
 URL:            https://www.freecad.org/
 Source0:        freecad-sources.tar.gz
+Patch0:         0001-fix-nlohmann-json-include.patch
+Patch1:         0002-find-external-e57format.patch
 
 %global plugins AssemblyApp AssemblyGui CAMSimulator DraftUtils Fem FreeCAD Import Inspection MatGui Materials Measure Mesh MeshPart Part PartDesignGui Path PathApp PathSimulator Points QtUnitGui ReverseEngineering Robot Sketcher Spreadsheet Start Surface TechDraw Web _PartDesign area flatmesh libDriver libDriverDAT libDriverSTL libDriverUNV libE57Format libMEFISTO2 libSMDS libSMESH libSMESHDS libStdMeshers libarea-native tsp_solver
 %global exported_libs libOndselSolver
@@ -56,6 +58,8 @@ engineering, product design, architecture and other engineering fields.
 
 %prep
 %setup -T -a 0 -q -c -n FreeCAD-%{version}
+%patch -P0 -p1
+%patch -P1 -p1
 
 %build
 LDFLAGS='-Wl,--as-needed -Wl,--no-undefined'; export LDFLAGS
@@ -96,6 +100,7 @@ LDFLAGS='-Wl,--as-needed -Wl,--no-undefined'; export LDFLAGS
 %cmake_install
 mkdir -p %{buildroot}%{_bindir} %{buildroot}%{_datadir} %{buildroot}%{_metainfodir}
 ln -s ../%{_lib}/%{name}/bin/FreeCAD %{buildroot}%{_bindir}/FreeCAD
+ln -s ../%{_lib}/%{name}/bin/FreeCAD %{buildroot}%{_bindir}/freecad
 ln -s ../%{_lib}/%{name}/bin/FreeCADCmd %{buildroot}%{_bindir}/FreeCADCmd
 rm -rf %{buildroot}%{_libdir}/%{name}/include/E57Format
 rm -rf %{buildroot}%{_includedir}/gmock %{buildroot}%{_includedir}/gtest
@@ -124,6 +129,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.freecad.FreeCAD.d
 %license %{_docdir}/%{name}/LICENSE.html
 %doc %{_docdir}/%{name}/ThirdPartyLibraries.html
 %{_bindir}/FreeCAD
+%{_bindir}/freecad
 %{_bindir}/FreeCADCmd
 %{_metainfodir}/*
 %dir %{_libdir}/%{name}

@@ -11,8 +11,8 @@ set -euo pipefail
 }
 
 rm -rf build SRPMS rpmbuild
-mkdir -p build SRPMS
-SOURCE_ARCHIVE="$PWD/freecad-sources.tar.gz"
+mkdir -p build/SOURCES build/SPECS SRPMS
+SOURCE_ARCHIVE="$PWD/build/SOURCES/freecad-sources.tar.gz"
 
 # Archive tracked source files and checked-out submodules, excluding Git
 # metadata. -C keeps the source root at archive top level; %setup -c creates
@@ -29,10 +29,12 @@ git -C "$FREECAD_SOURCE_DIR" ls-files --recurse-submodules -z \
 sed -e "s/@VERSION@/${VERSION}/g" \
     -e "s/@RELEASE@/${RELEASE}/g" \
     "$PKG.spec" > "build/$PKG.spec"
+cp patches/0001-fix-nlohmann-json-include.patch \
+    patches/0002-find-external-e57format.patch build/SOURCES/
 
 rpmbuild -bs "build/$PKG.spec" \
     --define "_topdir $PWD/rpmbuild" \
-    --define "_sourcedir $PWD" \
+    --define "_sourcedir $PWD/build/SOURCES" \
     --define "_srcrpmdir $PWD/SRPMS"
 
 ls -lh SRPMS/*.src.rpm

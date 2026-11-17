@@ -1,0 +1,13 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -87,6 +87,10 @@
+     find_package(ZLIB REQUIRED)
+     find_package(PyCXX REQUIRED)
+     SetupOpenCasCade()
++    if(FREECAD_USE_EXTERNAL_E57FORMAT)
++        find_package(E57Format REQUIRED)
++    endif()
++
+     if(BUILD_GUI)
+         # Do this before the check for SMESH because it depends on vtk
+         # that may have its own OpenGL check but possibly fails and leaves
