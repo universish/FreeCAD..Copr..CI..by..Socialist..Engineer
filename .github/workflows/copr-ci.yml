@@ -30,9 +30,6 @@ env:
   COPR_PROJECT: universish/FreeCAD..
 
 jobs:
-  # =========================================================================
-  # AŞAMA 1: Tespit ve Statik Kontroller
-  # =========================================================================
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -94,9 +91,6 @@ jobs:
           test -s patches/0002-find-external-e57format.patch
           test "$(grep -Ev '^[[:space:]]*(#|$)' chroots.txt | wc -l)" -eq 14
 
-  # =========================================================================
-  # AŞAMA 2: Payload Doğrulama ve Tarama
-  # =========================================================================
   build-payload:
     needs: [detect, static-checks]
     if: needs.detect.outputs.non_native_changed == 'true'
@@ -138,9 +132,6 @@ jobs:
           path: payload/${{ matrix.arch }}/
           retention-days: 7
 
-  # =========================================================================
-  # AŞAMA 3: Source SRPM Oluşturma
-  # =========================================================================
   source-srpm:
     needs: [detect, static-checks]
     if: needs.detect.outputs.native_changed == 'true'
@@ -241,9 +232,6 @@ jobs:
           path: SRPMS/*.src.rpm
           retention-days: 14
 
-  # =========================================================================
-  # AŞAMA 4: Copr'a Gönderim
-  # =========================================================================
   copr:
     needs: [detect, source-srpm]
     if: needs.detect.outputs.native_changed == 'true'
@@ -302,9 +290,6 @@ jobs:
       - name: Submit non-native SRPMs with NVR idempotency checks
         run: ./scripts/submit-copr.sh SRPMS/*.src.rpm
 
-  # =========================================================================
-  # AŞAMA 5: Finalize
-  # =========================================================================
   finalize:
     needs: [detect, copr, copr-non-native]
     if: >-
@@ -356,3 +341,4 @@ jobs:
           git commit -m 'ci: update FreeCAD package state [skip ci]' || true
           git pull --rebase --autostash origin main
           git push
+
