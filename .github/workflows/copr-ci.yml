@@ -182,15 +182,18 @@ jobs:
     name: Non-native SRPM (${{ matrix.channel }})
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/download-artifact@v4
         with:
           name: payload-${{ matrix.channel }}-x86_64
           path: payload/x86_64
+          
       - uses: actions/download-artifact@v4
         with:
           name: payload-${{ matrix.channel }}-aarch64
           path: payload/aarch64
-            - name: Debug payload layout (Non-Native)
+
+      - name: Debug payload layout (Non-Native)
         run: |
           echo "Working directory: $PWD"
           echo "PAYLOAD_ROOT: ${PAYLOAD_ROOT:-unset}"
@@ -214,21 +217,29 @@ jobs:
             echo "UYARI: İç içe x86_64 klasörü tespit edildi! Dosyalar yanlış yerde olabilir."
             find payload/x86_64/x86_64 -maxdepth 2 -printf '%M %p\n'
           fi
+
       - name: Install RPM build tools
         run: sudo apt-get update && sudo apt-get install -y rpm
+
       - name: Create non-native source RPM
         env:
           PKG: ${{ matrix.pkg }}
           VERSION: ${{ matrix.version }}
           RELEASE: ${{ matrix.release }}
           PAYLOAD_ROOT: payload
-        run: ./scripts/build-srpm-non-native.sh
+        run: |
+          # AppRun dosyası varsa çalıştırma iznini garantiye al
+          if [[ -f payload/x86_64/AppRun ]]; then
+            chmod +x payload/x86_64/AppRun
+            echo "AppRun çalıştırma izni güncellendi."
+          fi
+          ./scripts/build-srpm-non-native.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: srpm-non-native-${{ matrix.channel }}
           path: SRPMS/*.src.rpm
           retention-days: 14
-
   copr:
     needs: [detect, source-srpm]
     if: needs.detect.outputs.native_changed == 'true'
