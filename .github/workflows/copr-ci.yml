@@ -190,6 +190,30 @@ jobs:
         with:
           name: payload-${{ matrix.channel }}-aarch64
           path: payload/aarch64
+            - name: Debug payload layout (Non-Native)
+        run: |
+          echo "Working directory: $PWD"
+          echo "PAYLOAD_ROOT: ${PAYLOAD_ROOT:-unset}"
+          if [[ -d payload ]]; then
+            echo "=== PAYLOAD DİZİN YAPISI ==="
+            find payload -maxdepth 5 -printf '%M %p\n' | sort
+          else
+            echo "ERROR: payload directory does not exist"
+          fi
+          echo "=== KRİTİK DOSYA KONTROLÜ ==="
+          for f in payload/x86_64/AppRun payload/x86_64/freecad-icon.svg; do
+            if [[ -e "$f" ]]; then
+              echo "BULUNDU: $f"
+              ls -l "$f"
+              file "$f"
+            else
+              echo "EKSİK: $f"
+            fi
+          done
+          if [[ -d payload/x86_64/x86_64 ]]; then
+            echo "UYARI: İç içe x86_64 klasörü tespit edildi! Dosyalar yanlış yerde olabilir."
+            find payload/x86_64/x86_64 -maxdepth 2 -printf '%M %p\n'
+          fi
       - name: Install RPM build tools
         run: sudo apt-get update && sudo apt-get install -y rpm
       - name: Create non-native source RPM
