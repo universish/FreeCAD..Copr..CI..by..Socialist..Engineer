@@ -183,39 +183,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # DÜZELTME 1: path'i sadece 'payload' olarak değiştirin
       - uses: actions/download-artifact@v4
         with:
           name: payload-${{ matrix.channel }}-x86_64
-          path: payload/x86_64
+          path: payload 
           
+      # DÜZELTME 2: path'i sadece 'payload' olarak değiştirin
       - uses: actions/download-artifact@v4
         with:
           name: payload-${{ matrix.channel }}-aarch64
-          path: payload/aarch64
+          path: payload
 
       - name: Debug payload layout (Non-Native)
         run: |
-          echo "Working directory: $PWD"
-          echo "PAYLOAD_ROOT: ${PAYLOAD_ROOT:-unset}"
-          if [[ -d payload ]]; then
-            echo "=== PAYLOAD DİZİN YAPISI ==="
-            find payload -maxdepth 5 -printf '%M %p\n' | sort
+          echo "=== GENEL PAYLOAD DİZİN YAPISI ==="
+          find payload -maxdepth 4 -printf '%M %p\n' | sort
+          
+          echo "=== aarch64 KRİTİK DOSYA KONTROLÜ ==="
+          if [[ -f "payload/aarch64/AppRun" ]]; then
+            echo "BAŞARILI: payload/aarch64/AppRun bulundu!"
+            ls -l payload/aarch64/AppRun
           else
-            echo "ERROR: payload directory does not exist"
-          fi
-          echo "=== KRİTİK DOSYA KONTROLÜ ==="
-          for f in payload/x86_64/AppRun payload/x86_64/freecad-icon.svg; do
-            if [[ -e "$f" ]]; then
-              echo "BULUNDU: $f"
-              ls -l "$f"
-              file "$f"
-            else
-              echo "EKSİK: $f"
-            fi
-          done
-          if [[ -d payload/x86_64/x86_64 ]]; then
-            echo "UYARI: İç içe x86_64 klasörü tespit edildi! Dosyalar yanlış yerde olabilir."
-            find payload/x86_64/x86_64 -maxdepth 2 -printf '%M %p\n'
+            echo "HATA: payload/aarch64/AppRun bulunamadı."
+            # Eğer yanlış yerdeyse göster
+            find payload -name "AppRun" -type f
           fi
 
       - name: Install RPM build tools
@@ -228,11 +220,14 @@ jobs:
           RELEASE: ${{ matrix.release }}
           PAYLOAD_ROOT: payload
         run: |
-          # AppRun dosyası varsa çalıştırma iznini garantiye al
-          if [[ -f payload/x86_64/AppRun ]]; then
-            chmod +x payload/x86_64/AppRun
-            echo "AppRun çalıştırma izni güncellendi."
-          fi
+          # Her iki mimari için de çalıştırma iznini garantiye al
+          for arch in x86_64 aarch64; do
+            if [[ -f "payload/$arch/AppRun" ]]; then
+              chmod +x "payload/$arch/AppRun"
+              echo "payload/$arch/AppRun çalıştırma izni güncellendi."
+            fi
+          done
+          
           ./scripts/build-srpm-non-native.sh
 
       - uses: actions/upload-artifact@v4
@@ -240,6 +235,7 @@ jobs:
           name: srpm-non-native-${{ matrix.channel }}
           path: SRPMS/*.src.rpm
           retention-days: 14
+          
   copr:
     needs: [detect, source-srpm]
     if: needs.detect.outputs.native_changed == 'true'
