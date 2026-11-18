@@ -40,6 +40,10 @@ ExclusiveArch:  x86_64 aarch64
 %define __requires_exclude_from ^/opt/%{name}
 %define __provides_exclude_from ^/opt/%{name}
 
+# _metainfodir is not defined on all distros (e.g. openSUSE Leap 16.0);
+# define it explicitly so %install and %files expand consistently.
+%global _metainfodir /usr/share/metainfo
+
 # Yalnızca tüm hedef dağıtımlarda ortak adlar (bkz. freecad.spec).
 Requires:       hicolor-icon-theme shared-mime-info
 Requires(post,postun): desktop-file-utils shared-mime-info
