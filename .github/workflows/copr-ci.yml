@@ -37,6 +37,8 @@ jobs:
       native_changed: ${{ steps.detect.outputs.native_changed }}
       non_native_changed: ${{ steps.detect.outputs.non_native_changed }}
       payload_matrix: ${{ steps.detect.outputs.payload_matrix }}
+      native_matrix: ${{ steps.detect.outputs.native_matrix }}
+      non_native_matrix: ${{ steps.detect.outputs.non_native_matrix }}
       stable_enabled: ${{ steps.detect.outputs.stable_enabled }}
       candidate_enabled: ${{ steps.detect.outputs.candidate_enabled }}
       stable_tag: ${{ steps.detect.outputs.stable_tag }}
@@ -89,7 +91,7 @@ jobs:
     if: needs.detect.outputs.non_native_changed == 'true'
     strategy:
       fail-fast: true
-      matrix: ${{ fromJSON(needs.detect.outputs.payload_matrix) }}
+      matrix: ${{ fromJSON(needs.detect.outputs.payload_matrix || '{"include":[]}') }}
     runs-on: ${{ matrix.runner }}
     name: Verify and scan ${{ matrix.channel }} ${{ matrix.arch }} payload
     env:
@@ -192,7 +194,7 @@ jobs:
     if: needs.detect.outputs.non_native_changed == 'true'
     strategy:
       fail-fast: true
-      matrix: ${{ fromJSON(needs.detect.outputs.non_native_matrix) }}
+      matrix: ${{ fromJSON(needs.detect.outputs.non_native_matrix || '{"include":[]}') }}
     runs-on: ubuntu-latest
     name: Non-native SRPM (${{ matrix.channel }})
     steps:
