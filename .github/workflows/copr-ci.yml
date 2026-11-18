@@ -65,6 +65,7 @@ jobs:
         run: ./scripts/detect-release.sh
 
   static-checks:
+    needs: detect
     runs-on: ubuntu-latest
     name: Shell, workflow, spec, and source-input checks
     steps:
@@ -128,8 +129,19 @@ jobs:
           retention-days: 7
 
   source-srpm-native:
-    needs: [detect, static-checks]
-    if: needs.detect.outputs.native_changed == 'true'
+    needs: [detect, static-checks, build-payload]
+    if: >-
+      always() &&
+      needs.detect.result == 'success' &&
+      needs.static-checks.result == 'success' &&
+      needs.detect.outputs.native_changed == 'true' &&
+      (
+        needs['build-payload'].result == 'success' ||
+        (
+          needs['build-payload'].result == 'skipped' &&
+          needs.detect.outputs.non_native_changed != 'true'
+        )
+      )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -154,12 +166,9 @@ jobs:
     name: Native SRPM (${{ matrix.channel }})
     steps:
       - uses: actions/checkout@v4
-      - name: Check if this channel should build
-        if: matrix.changed != 'true' || matrix.enabled != 'true'
-        run: |
-          echo "Channel ${{ matrix.channel }} has no changes or is not enabled. Skipping."
-          exit 0
+        if: matrix.changed == 'true' && matrix.enabled == 'true'
       - name: Fetch the matching FreeCAD source and initialized submodules
+        if: matrix.changed == 'true' && matrix.enabled == 'true'
         uses: actions/checkout@v4
         with:
           repository: FreeCAD/FreeCAD
@@ -168,15 +177,18 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - name: Install RPM build tools
+        if: matrix.changed == 'true' && matrix.enabled == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm clamav clamav-freshclam
       - name: Update ClamAV signatures and scan native source
+        if: matrix.changed == 'true' && matrix.enabled == 'true'
         run: |
           sudo systemctl stop clamav-freshclam.service 2>/dev/null || true
           sudo freshclam --stdout
           sudo clamscan --recursive --infected --no-summary upstream
       - name: Create native source RPM
+        if: matrix.changed == 'true' && matrix.enabled == 'true'
         env:
           PKG: ${{ matrix.pkg }}
           VERSION: ${{ matrix.version }}
@@ -184,6 +196,7 @@ jobs:
           FREECAD_SOURCE_DIR: upstream
         run: ./scripts/build-srpm.sh
       - uses: actions/upload-artifact@v4
+        if: matrix.changed == 'true' && matrix.enabled == 'true'
         with:
           name: srpm-native-${{ matrix.channel }}
           path: SRPMS/*.src.rpm
@@ -191,7 +204,12 @@ jobs:
 
   source-srpm-non-native:
     needs: [detect, static-checks, build-payload]
-    if: needs.detect.outputs.non_native_changed == 'true'
+    if: >-
+      always() &&
+      needs.detect.result == 'success' &&
+      needs.static-checks.result == 'success' &&
+      needs.detect.outputs.non_native_changed == 'true' &&
+      needs['build-payload'].result == 'success'
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(needs.detect.outputs.non_native_matrix || '{"include":[]}') }}
@@ -250,8 +268,21 @@ jobs:
           retention-days: 14
 
   copr:
-    needs: [detect, source-srpm-native]
-    if: needs.detect.outputs.native_changed == 'true'
+    needs: [detect, source-srpm-native, source-srpm-non-native]
+    if: >-
+      always() &&
+      needs.detect.result == 'success' &&
+      needs.detect.outputs.native_changed == 'true' &&
+      (
+        needs['source-srpm-native'].result == 'success'
+      ) &&
+      (
+        needs['source-srpm-non-native'].result == 'success' ||
+        (
+          needs['source-srpm-non-native'].result == 'skipped' &&
+          needs.detect.outputs.non_native_changed != 'true'
+        )
+      )
     runs-on: ubuntu-latest
     name: Submit native SRPMs to Copr
     steps:
@@ -279,8 +310,21 @@ jobs:
         run: ./scripts/submit-copr.sh SRPMS/*.src.rpm
 
   copr-non-native:
-    needs: [detect, source-srpm-non-native]
-    if: needs.detect.outputs.non_native_changed == 'true'
+    needs: [detect, source-srpm-native, source-srpm-non-native]
+    if: >-
+      always() &&
+      needs.detect.result == 'success' &&
+      needs.detect.outputs.non_native_changed == 'true' &&
+      (
+        needs['source-srpm-non-native'].result == 'success'
+      ) &&
+      (
+        needs['source-srpm-native'].result == 'success' ||
+        (
+          needs['source-srpm-native'].result == 'skipped' &&
+          needs.detect.outputs.native_changed != 'true'
+        )
+      )
     runs-on: ubuntu-latest
     name: Submit non-native SRPMs to Copr
     steps:
@@ -321,8 +365,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Update per-package state after Copr submissions
         env:
-          NATIVE_MATRIX: ${{ needs.detect.outputs.native_matrix }}
-          NON_NATIVE_MATRIX: ${{ needs.detect.outputs.non_native_matrix }}
+          NATIVE_MATRIX: ${{ needs.detect.outputs.native_matrix || '{"include":[]}' }}
+          NON_NATIVE_MATRIX: ${{ needs.detect.outputs.non_native_matrix || '{"include":[]}' }}
         run: |
           while IFS= read -r item; do
             PKG=$(jq -r '.pkg' <<< "$item")
