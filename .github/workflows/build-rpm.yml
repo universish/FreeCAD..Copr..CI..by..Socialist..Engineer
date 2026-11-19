@@ -1,0 +1,110 @@
+name: Build FreeCAD RPM
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - '.copr/**'
+  workflow_dispatch:
+  schedule:
+    # Run weekly to check for new releases
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ['44', '45']
+    container:
+      image: registry.fedoraproject.org/fedora:${{ matrix.fedora }}
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          df -h / /github 2>/dev/null || df -h /
+          rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache \
+            /usr/share/swift /usr/local/share/powershell /usr/share/powershell \
+            /usr/local/lib/python* /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          rm -rf /usr/share/doc /usr/share/man /usr/share/info 2>/dev/null || true
+          rm -rf /root/.cache /root/.npm /var/cache /var/lib/apt/lists 2>/dev/null || true
+          dnf -y clean all 2>/dev/null || true
+          df -h / | tail -1
+
+      - name: Get latest release version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use authenticated request to avoid rate limiting (60 req/hr unauth)
+          LATEST=$(curl -sL -H "Authorization: token $GH_TOKEN" \
+            https://api.github.com/repos/FreeCAD/FreeCAD/releases/latest \
+            | grep '"tag_name"' | cut -d '"' -f 4)
+          if [ -z "$LATEST" ]; then
+            echo "::error::Failed to determine latest FreeCAD version"
+            exit 1
+          fi
+          echo "version=${LATEST}" >> $GITHUB_OUTPUT
+          echo "Latest version: ${LATEST}"
+
+      - name: Prepare RPM build tree and spec
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          dnf install -y rpm-build rpmdevtools dnf-plugins-core
+          rpmdev-setuptree
+          # Create spec file from template with correct version
+          sed -e "s/@VERSION@/${VERSION}/g" \
+              -e "s/@RELEASE@/1/g" \
+              freecad.spec > ~/rpmbuild/SPECS/freecad.spec
+          cp README.md ~/rpmbuild/SOURCES/
+          for p in patches/*.patch; do
+            if [ -f "$p" ]; then
+              cp "$p" ~/rpmbuild/SOURCES/
+            fi
+          done
+
+      - name: Install build dependencies
+        run: |
+          dnf builddep -y ~/rpmbuild/SPECS/freecad.spec
+
+      - name: Download source tarball
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          curl -sfL --header="Authorization: token $GH_TOKEN" \
+            "https://github.com/FreeCAD/FreeCAD/releases/download/${VERSION}/freecad_source_${VERSION}.tar.gz" \
+            -o freecad_source_${VERSION}.tar.gz
+          sha256sum freecad_source_${VERSION}.tar.gz
+          cp freecad_source_${VERSION}.tar.gz ~/rpmbuild/SOURCES/
+
+      - name: Build RPM and SRPM
+        run: |
+          rpmbuild -ba ~/rpmbuild/SPECS/freecad.spec
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: freecad-rpm-f${{ matrix.fedora }}
+          path: |
+            ~/rpmbuild/RPMS/x86_64/*.rpm
+            ~/rpmbuild/SRPMS/*.rpm
+          retention-days: 30
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: FreeCAD ${{ steps.version.outputs.version }}
+          files: |
+            ~/rpmbuild/RPMS/x86_64/*.rpm
+            ~/rpmbuild/SRPMS/*.rpm
+          generate_release_notes: true

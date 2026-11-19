@@ -231,6 +231,122 @@ The workflow runs at 12:30 and 17:30 `Europe/Brussels` time, and can also be sta
 
 GitHub Actions secrets required: `COPR_CONFIG`; `VT_API_KEY` is optional/advisory. The project creates a local ignored `.env` placeholder for local VT configuration; never commit a real key.
 
+## NATIVE
+
+Native FreeCAD; RPM packaging for [FreeCAD](https://github.com/FreeCAD/FreeCAD) — open-source parametric 3D CAD modeler, built with **maximum use of system libraries** from Fedora `-devel` packages.
+
+## Dependency strategy
+
+Where possible the package uses **system libraries** from Fedora `-devel` packages:
+
+- Coin4 4.0.10, OpenCASCADE, VTK 9.5+
+- Boost 1.90, Eigen3 5.0.1
+- PySide6 6.11, Shiboken6, Pivy 0.6.9+
+- fmt, yaml-cpp, nlohmann_json, Microsoft GSL (`guidelines-support-library-devel`)
+- OndselSolver, libE57Format, libkdtree++, orocos-kdl
+- MEDFile, Xerces-C, ICU, OpenMPI, HDF5
+- GTest/GMock, libspnav
+
+Only libraries with no compatible version in the distribution (or requiring custom patches) are **bundled**:
+
+- SMESH 7.7.1.0 (custom Salome fork, not in Fedora)
+- zipios++ 0.1.5.9 (Fedora version too old, API incompatible)
+- lru-cache (header-only, tiny)
+- 3Dconnexion (driver SDK, not packaged)
+
+The system-detection logic lives in CMake options (`FREECAD_USE_EXTERNAL_*`) — all enabled where Fedora provides compatible versions.
+
+### Build from Source
+
+```bash
+# Install build tools
+sudo dnf install -y rpm-build rpmdevtools dnf-plugins-core git wget curl \
+  cmake ninja-build gcc gcc-c++ make patch pkgconf dos2unix \
+  swig python3-devel desktop-file-utils libappstream-glib \
+  Coin4-devel opencascade-devel med-devel vtk-devel \
+  boost-devel eigen3-devel pybind11-devel \
+  python3-pycxx-devel python3-pyside6-devel python3-shiboken6-devel \
+  python3-pivy python3-matplotlib \
+  fmt-devel yaml-cpp-devel nlohmann-json-devel guidelines-support-library-devel \
+  ondselsolver-devel libE57Format-devel libkdtree++-devel orocos-kdl-devel \
+  gtest-devel gmock-devel hdf5-static openmpi-devel xerces-c-devel \
+  libicu-devel libspnav-devel \
+  mesa-libGL-devel mesa-libGLU-devel freetype-devel \
+  qt6-qtbase-devel qt6-qtsvg-devel qt6-qttools-devel
+
+# ...or let dnf resolve them straight from the spec:
+# sudo dnf builddep -y freecad.spec
+
+# Determine version and build RPM
+VERSION=1.1.4
+rpmdev-setuptree
+wget -q "https://github.com/FreeCAD/FreeCAD/releases/download/${VERSION}/freecad_source_${VERSION}.tar.gz" \
+  -O ~/rpmbuild/SOURCES/freecad_source_${VERSION}.tar.gz
+cp README.md ~/rpmbuild/SOURCES/
+cp patches/*.patch ~/rpmbuild/SOURCES/ 2>/dev/null || true
+sed -e "s/@VERSION@/${VERSION}/g" -e "s/@RELEASE@/1/g" \
+  freecad.spec > ~/rpmbuild/SPECS/freecad.spec
+rpmbuild -ba ~/rpmbuild/SPECS/freecad.spec
+```
+
+> The `%prep`/`%build` uses system libraries resolved at configure time from the `-devel` packages listed above.
+> `rpmbuild -ba` produces **both** the SRPM (`~/rpmbuild/SRPMS/*.src.rpm`) and
+> the binary RPM (`~/rpmbuild/RPMS/x86_64/*.x86_64.rpm`). Verify the artifacts with:
+
+```bash
+rpmlint ~/rpmbuild/RPMS/x86_64/freecad*.rpm   # 0 real errors
+rpm -qlp ~/rpmbuild/RPMS/x86_64/freecad*.rpm  # file list
+ldd /usr/lib64/freecad/bin/FreeCAD            # no "not found"
+/usr/bin/freecad --help                       # smoke test
+```
+
+## Local mock build (Fedora 44/45 with RPMFusion)
+
+```bash
+# Install mock and RPMFusion
+sudo dnf install -y mock
+sudo usermod -a -G mock $USER
+newgrp mock
+
+# Build SRPM first (spec is a template — substitute the version)
+VERSION=1.1.4
+sed -e "s/@VERSION@/${VERSION}/g" -e "s/@RELEASE@/1/g" freecad.spec > /tmp/freecad.spec
+rpmbuild -bs --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" /tmp/freecad.spec
+
+# Build for Fedora 44 with RPMFusion free
+mock -r fedora+rpmfusion_free-44-x86_64 --rebuild freecad-*.src.rpm
+
+# Build for Fedora 45 with RPMFusion free
+mock -r fedora+rpmfusion_free-45-x86_64 --rebuild freecad-*.src.rpm
+```
+
+Resulting RPMs in `/var/lib/mock/fedora-44-x86_64/result/` (and `fedora-45-x86_64/result/`).
+
+> **Note:** unit tests are off by default (`%bcond_with tests` in the spec — a few
+> tests fail under mock chroot). Enable with `rpmbuild --with tests`.
+
+## CI/CD
+
+### GitHub Actions
+
+Automatically:
+1. Checks for new FreeCAD releases (weekly schedule)
+2. Builds src.rpm and x86_64.rpm in Fedora 44/45 containers
+3. Uploads artifacts to GitHub Releases
+
+### COPR
+
+Automatically builds for Fedora 44/45 from the latest main branch:
+- [COPR Project Page](https://copr.fedorainfracloud.org/coprs/chirikrat/FreeCAD-rpm/)
+
+**Note:** Workflows do not trigger on changes to README.md or `.copr/**`.
+
+## License
+
+LGPL-2.1-or-later AND Zlib AND BSD-3-Clause AND Apache-2.0 AND EUPL-1.2 AND BSL-1.0 AND MIT AND GPL-2.0-or-later AND CC-BY-SA-4.0 (same as FreeCAD)
+
+----
+
 ## Copr targets
 
 The configured targets cover Fedora 44, Fedora 45, Fedora Rawhide, openEuler 22.03/24.03, and openSUSE Tumbleweed/Leap 16.0 for x86_64 and aarch64.

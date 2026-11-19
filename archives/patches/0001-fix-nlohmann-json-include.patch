@@ -1,0 +1,22 @@
+--- a/src/Mod/PartDesign/App/FeatureHole.h
++++ b/src/Mod/PartDesign/App/FeatureHole.h
+@@ -24,7 +24,7 @@
+ 
+ #include <optional>
+ #include <App/PropertyUnits.h>
+-#include "json_fwd.hpp"
++#include <nlohmann/json_fwd.hpp>
+ #include "FeatureSketchBased.h"
+ 
+ class Property;
+--- a/src/Mod/PartDesign/App/FeatureHole.cpp
++++ b/src/Mod/PartDesign/App/FeatureHole.cpp
+@@ -55,7 +55,7 @@
+ #include <Mod/Part/App/Tools.h>
+ 
+ #include "FeatureHole.h"
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ 
+ #include <numbers>
+ 

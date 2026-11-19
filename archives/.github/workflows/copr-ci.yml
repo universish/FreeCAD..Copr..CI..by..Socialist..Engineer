@@ -129,19 +129,12 @@ jobs:
           retention-days: 7
 
   source-srpm-native:
-    needs: [detect, static-checks, build-payload]
+    needs: [detect, static-checks]
     if: >-
       always() &&
       needs.detect.result == 'success' &&
       needs.static-checks.result == 'success' &&
-      needs.detect.outputs.native_changed == 'true' &&
-      (
-        needs['build-payload'].result == 'success' ||
-        (
-          needs['build-payload'].result == 'skipped' &&
-          needs.detect.outputs.non_native_changed != 'true'
-        )
-      )
+      needs.detect.outputs.native_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true

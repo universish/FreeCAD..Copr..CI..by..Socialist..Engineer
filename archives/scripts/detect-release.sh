@@ -7,6 +7,10 @@ STATE_DIR="${STATE_DIR:-state}"
 FORCE_VERSION="${FORCE_VERSION:-}"
 FORCE_CHANNEL="${FORCE_CHANNEL:-auto}"
 API="https://api.github.com/repos/FreeCAD/FreeCAD/releases"
+AUTH_HEADER="-H 'Accept: application/vnd.github+json'"
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    AUTH_HEADER="-H 'Accept: application/vnd.github+json' -H \"Authorization: Bearer ${GITHUB_TOKEN}\""
+fi
 
 is_candidate_tag() { [[ "${1,,}" =~ (rc[0-9]+|beta|alpha|pre) ]]; }
 is_weekly_tag() { [[ "${1,,}" == weekly-* || "${1,,}" == *weekly* ]]; }
@@ -18,7 +22,7 @@ classify() {
 latest_release_for_channel() {
     local wanted="$1" page batch item tag candidate
     for page in $(seq 1 10); do
-        batch=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API?per_page=100&page=$page")
+        batch=$(curl -fsSL ${AUTH_HEADER} "$API?per_page=100&page=$page")
         [[ $(jq 'length' <<<"$batch") -eq 0 ]] && break
         while IFS= read -r item; do
             tag=$(jq -r '.tag_name' <<<"$item")
@@ -100,7 +104,7 @@ if [[ -n "$FORCE_VERSION" ]]; then
     if [[ "$requested_tag" == [vV]* ]]; then alternate_tag="${requested_tag:1}"; else alternate_tag="v$requested_tag"; fi
     forced_release=''
     for lookup_tag in "$requested_tag" "$alternate_tag"; do
-        forced_release=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$API/tags/$lookup_tag" 2>/dev/null) || true
+        forced_release=$(curl -fsSL ${AUTH_HEADER} "$API/tags/$lookup_tag" 2>/dev/null) || true
         [[ -n "$forced_release" ]] && break
     done
     [[ -n "$forced_release" ]] || { echo "::error::Release tag not found: $requested_tag (or $alternate_tag)"; exit 1; }

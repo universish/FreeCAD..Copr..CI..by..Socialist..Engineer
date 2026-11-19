@@ -2,3 +2,21 @@
 .env.*
 !.env.example
 .vscode-ctags
+# RPM build artifacts
+*.rpm
+*.src.rpm
+rpmbuild/
+*.tar.gz
+
+# Mock results
+/var/lib/mock/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
