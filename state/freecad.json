@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "package": "freecad",
+  "channel": "stable",
+  "family": "native",
+  "version": null,
+  "tag": null,
+  "release": 0,
+  "assets": {},
+  "copr_builds": [],
+  "published_at": null
+}

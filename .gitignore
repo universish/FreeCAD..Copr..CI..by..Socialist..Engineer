@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+__pycache__/
+*.py[cod]
 .vscode-ctags
 # RPM build artifacts
 *.rpm

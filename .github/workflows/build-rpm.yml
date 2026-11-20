@@ -1,110 +1,399 @@
-name: Build FreeCAD RPM
+name: FreeCAD Copr release pipeline
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'README.md'
-      - '.copr/**'
-  workflow_dispatch:
   schedule:
-    # Run weekly to check for new releases
-    - cron: '0 0 * * 0'
+    - cron: '30 12 * * *'
+      timezone: Europe/Brussels
+    - cron: '30 17 * * *'
+      timezone: Europe/Brussels
+  workflow_dispatch:
+    inputs:
+      force_tag:
+        description: Optional upstream release tag to validate and process
+        required: false
+        type: string
+      force_channel:
+        description: Channel to use with force_tag
+        required: false
+        default: auto
+        type: choice
+        options: [auto, stable, candidate]
+  repository_dispatch:
+    types: [freecad-release]
+
+concurrency:
+  group: freecad-release-packaging
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  detect:
+    runs-on: ubuntu-24.04
+    outputs:
+      manifest: ${{ steps.detect.outputs.manifest }}
+      native_matrix: ${{ steps.detect.outputs.native_matrix }}
+      native_package_matrix: ${{ steps.detect.outputs.native_package_matrix }}
+      non_native_matrix: ${{ steps.detect.outputs.non_native_matrix }}
+      non_native_package_matrix: ${{ steps.detect.outputs.non_native_package_matrix }}
+      has_native: ${{ steps.detect.outputs.has_native }}
+      has_non_native: ${{ steps.detect.outputs.has_non_native }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Resolve eligible releases
+        id: detect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_TAG: ${{ github.event.inputs.force_tag || github.event.client_payload.tag || '' }}
+          FORCE_CHANNEL: ${{ github.event.inputs.force_channel || 'auto' }}
+        run: python scripts/detect_release.py --force-tag "$FORCE_TAG" --force-channel "$FORCE_CHANNEL"
+
+  static-checks:
+    needs: detect
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install static validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm shellcheck
+          python -m pip install --upgrade PyYAML
+          actionlint_version=1.7.12
+          curl -fsSLo /tmp/actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${actionlint_version}/actionlint_${actionlint_version}_linux_amd64.tar.gz"
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz' | sha256sum --check
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+      - name: Validate workflow and repository metadata
+        run: |
+          actionlint .github/workflows/build-rpm.yml
+          python -c 'import json, pathlib, yaml; json.load(open("config/release-policy.json")); [yaml.safe_load(p.read_text()) for p in pathlib.Path(".github/workflows").glob("*.yml")]'
+          python -m compileall -q scripts tests
+          shellcheck scripts/*.sh
+      - name: Validate Python behavior and RPM spec profiles
+        run: |
+          sudo apt-get install -y rpm
+          python -m unittest discover -s tests -v
+
+  build-native-srpm:
+    needs: [detect, static-checks]
+    if: needs.detect.outputs.has_native == 'true'
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        fedora: ['44', '45']
-    container:
-      image: registry.fedoraproject.org/fedora:${{ matrix.fedora }}
-
+        include: ${{ fromJSON(needs.detect.outputs.native_package_matrix) }}
     steps:
-      - name: Checkout this repository
-        uses: actions/checkout@v4
-
-      - name: Free disk space
-        run: |
-          df -h / /github 2>/dev/null || df -h /
-          rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache \
-            /usr/share/swift /usr/local/share/powershell /usr/share/powershell \
-            /usr/local/lib/python* /opt/ghc /opt/hostedtoolcache/CodeQL || true
-          rm -rf /usr/share/doc /usr/share/man /usr/share/info 2>/dev/null || true
-          rm -rf /root/.cache /root/.npm /var/cache /var/lib/apt/lists 2>/dev/null || true
-          dnf -y clean all 2>/dev/null || true
-          df -h / | tail -1
-
-      - name: Get latest release version
-        id: version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Use authenticated request to avoid rate limiting (60 req/hr unauth)
-          LATEST=$(curl -sL -H "Authorization: token $GH_TOKEN" \
-            https://api.github.com/repos/FreeCAD/FreeCAD/releases/latest \
-            | grep '"tag_name"' | cut -d '"' -f 4)
-          if [ -z "$LATEST" ]; then
-            echo "::error::Failed to determine latest FreeCAD version"
-            exit 1
-          fi
-          echo "version=${LATEST}" >> $GITHUB_OUTPUT
-          echo "Latest version: ${LATEST}"
-
-      - name: Prepare RPM build tree and spec
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          dnf install -y rpm-build rpmdevtools dnf-plugins-core
-          rpmdev-setuptree
-          # Create spec file from template with correct version
-          sed -e "s/@VERSION@/${VERSION}/g" \
-              -e "s/@RELEASE@/1/g" \
-              freecad.spec > ~/rpmbuild/SPECS/freecad.spec
-          cp README.md ~/rpmbuild/SOURCES/
-          for p in patches/*.patch; do
-            if [ -f "$p" ]; then
-              cp "$p" ~/rpmbuild/SOURCES/
-            fi
-          done
-
-      - name: Install build dependencies
-        run: |
-          dnf builddep -y ~/rpmbuild/SPECS/freecad.spec
-
-      - name: Download source tarball
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          curl -sfL --header="Authorization: token $GH_TOKEN" \
-            "https://github.com/FreeCAD/FreeCAD/releases/download/${VERSION}/freecad_source_${VERSION}.tar.gz" \
-            -o freecad_source_${VERSION}.tar.gz
-          sha256sum freecad_source_${VERSION}.tar.gz
-          cp freecad_source_${VERSION}.tar.gz ~/rpmbuild/SOURCES/
-
-      - name: Build RPM and SRPM
-        run: |
-          rpmbuild -ba ~/rpmbuild/SPECS/freecad.spec
-
-      - name: Upload RPM artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          name: freecad-rpm-f${{ matrix.fedora }}
+          python-version: '3.12'
+      - name: Install source RPM and security tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clamav clamav-freshclam rpm
+      - name: Check out exact upstream source tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: FreeCAD/FreeCAD
+          ref: ${{ matrix.tag }}
+          path: upstream
+          fetch-depth: 0
+          submodules: recursive
+      - name: Scan upstream source and packaging inputs
+        run: |
+          sudo systemctl stop clamav-freshclam.service 2>/dev/null || true
+          python scripts/scan_native_source.py \
+            --source upstream \
+            --package '${{ matrix.package }}' \
+            --report native-security-report.json
+      - name: Build reproducible native SRPM
+        env:
+          PRERELEASE: ${{ matrix.prerelease }}
+        run: |
+          set -- \
+            --source upstream \
+            --package '${{ matrix.package }}' \
+            --version '${{ matrix.version }}' \
+            --release '${{ matrix.release }}' \
+            --output-dir SRPMS
+          if [ "$PRERELEASE" = "true" ]; then
+            set -- "$@" --prerelease
+          fi
+          python scripts/build_native_srpm.py "$@"
+          clamscan --infected SRPMS/*.src.rpm
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-srpm-${{ matrix.package }}
+          path: SRPMS/*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: security-report-native-${{ matrix.package }}
           path: |
-            ~/rpmbuild/RPMS/x86_64/*.rpm
-            ~/rpmbuild/SRPMS/*.rpm
+            native-security-report.json
+            native-security-reports/
+          if-no-files-found: warn
           retention-days: 30
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+  build-payload:
+    needs: [detect, static-checks]
+    if: needs.detect.outputs.has_non_native == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.non_native_matrix) }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: FreeCAD ${{ steps.version.outputs.version }}
-          files: |
-            ~/rpmbuild/RPMS/x86_64/*.rpm
-            ~/rpmbuild/SRPMS/*.rpm
-          generate_release_notes: true
+          python-version: '3.12'
+      - name: Install extraction and security tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils clamav clamav-freshclam file rpm rpm2cpio squashfs-tools zstd
+      - name: Download and verify selected upstream artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET_URL: ${{ matrix.url }}
+          ASSET_NAME: ${{ matrix.name }}
+          ASSET_ARCH: ${{ matrix.architecture }}
+          ASSET_FORMAT: ${{ matrix.format }}
+          ASSET_DIGEST: ${{ matrix.digest || '' }}
+          CHECKSUM_URL: ${{ matrix.checksum_url || '' }}
+        run: |
+          python scripts/fetch_asset.py \
+            --url "$ASSET_URL" \
+            --filename "$ASSET_NAME" \
+            --architecture "$ASSET_ARCH" \
+            --format "$ASSET_FORMAT" \
+            --digest "$ASSET_DIGEST" \
+            --checksum-url "$CHECKSUM_URL"
+      - name: Extract without executing upstream code
+        run: |
+          python scripts/normalize_payload.py \
+            --asset-manifest "dist/${{ matrix.architecture }}/verified-asset.json" \
+            --package '${{ matrix.package }}' \
+            --architecture '${{ matrix.architecture }}' \
+            --output-root payload
+      - name: Scan original artifact and normalized payload
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          sudo systemctl stop clamav-freshclam.service 2>/dev/null || true
+          python scripts/security_scan.py \
+            --original "dist/${{ matrix.architecture }}/${{ matrix.name }}" \
+            --payload "payload/${{ matrix.package }}/${{ matrix.architecture }}" \
+            --package '${{ matrix.package }}' \
+            --architecture '${{ matrix.architecture }}' \
+            --report security-report.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: payload-${{ matrix.package }}-${{ matrix.architecture }}
+          path: payload/${{ matrix.package }}/${{ matrix.architecture }}
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: security-report-${{ matrix.package }}-${{ matrix.architecture }}
+          path: |
+            security-report.json
+            security-reports/
+          if-no-files-found: warn
+          retention-days: 30
+
+  build-nonnative-srpm:
+    needs: [detect, static-checks, build-payload]
+    if: needs.detect.outputs.has_non_native == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.non_native_package_matrix) }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install RPM build tools
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: payload-${{ matrix.package }}-x86_64
+          path: payload/${{ matrix.package }}/x86_64
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: payload-${{ matrix.package }}-aarch64
+          path: payload/${{ matrix.package }}/aarch64
+      - name: Build non-native SRPM from verified payloads
+        run: |
+          python scripts/build_non_native_srpm.py \
+            --package '${{ matrix.package }}' \
+            --version '${{ matrix.version }}' \
+            --release '${{ matrix.release }}' \
+            --payload-root payload \
+            --output-dir SRPMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nonnative-srpm-${{ matrix.package }}
+          path: SRPMS/*
+          if-no-files-found: error
+          retention-days: 14
+
+  submit-native:
+    needs: [detect, static-checks, build-native-srpm]
+    if: needs.detect.outputs.has_native == 'true'
+    runs-on: ubuntu-24.04
+    container:
+      image: registry.fedoraproject.org/fedora:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.native_package_matrix) }}
+    timeout-minutes: 350
+    steps:
+      - name: Prepare the container for JavaScript actions
+        run: dnf -y install nodejs git tar gzip
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Install Copr client
+        run: dnf -y install copr-cli python3 python3-rpm
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: native-srpm-${{ matrix.package }}
+          path: SRPMS
+      - name: Submit and monitor all configured Copr chroots
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          test -n "$COPR_CONFIG"
+          install -d -m 0700 "$HOME/.config"
+          printf '%s\n' "$COPR_CONFIG" > "$HOME/.config/copr"
+          chmod 0600 "$HOME/.config/copr"
+          SRPM=$(find SRPMS -maxdepth 1 -type f -name '*.src.rpm' -print -quit)
+          test -n "$SRPM"
+          python3 scripts/submit_copr.py \
+            --srpm "$SRPM" \
+            --package '${{ matrix.package }}' \
+            --output "build-results/${{ matrix.package }}.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: copr-result-${{ matrix.package }}
+          path: build-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  submit-nonnative:
+    needs: [detect, static-checks, build-nonnative-srpm]
+    if: needs.detect.outputs.has_non_native == 'true'
+    runs-on: ubuntu-24.04
+    container:
+      image: registry.fedoraproject.org/fedora:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.non_native_package_matrix) }}
+    timeout-minutes: 350
+    steps:
+      - name: Prepare the container for JavaScript actions
+        run: dnf -y install nodejs git tar gzip
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Install Copr client
+        run: dnf -y install copr-cli python3 python3-rpm
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nonnative-srpm-${{ matrix.package }}
+          path: SRPMS
+      - name: Submit and monitor all configured Copr chroots
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          test -n "$COPR_CONFIG"
+          install -d -m 0700 "$HOME/.config"
+          printf '%s\n' "$COPR_CONFIG" > "$HOME/.config/copr"
+          chmod 0600 "$HOME/.config/copr"
+          SRPM=$(find SRPMS -maxdepth 1 -type f -name '*.src.rpm' -print -quit)
+          test -n "$SRPM"
+          python3 scripts/submit_copr.py \
+            --srpm "$SRPM" \
+            --package '${{ matrix.package }}' \
+            --output "build-results/${{ matrix.package }}.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: copr-result-${{ matrix.package }}
+          path: build-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  finalize-state:
+    needs: [detect, static-checks, build-payload, build-nonnative-srpm, build-native-srpm, submit-native, submit-nonnative]
+    if: >-
+      always() &&
+      needs.detect.outputs.has_changes == 'true' &&
+      needs.static-checks.result == 'success' &&
+      (needs.detect.outputs.has_native != 'true' || needs.submit-native.result == 'success') &&
+      (needs.detect.outputs.has_non_native != 'true' || needs.submit-nonnative.result == 'success')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Download successful Copr build records
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: copr-result-*
+          path: build-results
+          merge-multiple: false
+      - name: Download SRPM metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: '*-srpm-*'
+          path: build-metadata
+          merge-multiple: true
+      - name: Download payload provenance and security reports
+        if: needs.detect.outputs.has_non_native == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: payload-*
+          path: payloads
+          merge-multiple: false
+      - name: Download security reports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: security-report-*
+          path: security-reports
+          merge-multiple: false
+      - name: Finalize state after every Copr target succeeded
+        env:
+          RELEASE_MANIFEST: ${{ needs.detect.outputs.manifest }}
+        run: python scripts/update_state.py
+      - name: Commit successful release state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add state/*.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Record successful FreeCAD Copr builds"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

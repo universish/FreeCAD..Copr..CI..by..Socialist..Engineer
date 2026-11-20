@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "package": "freecad-candidate-non-native",
+  "channel": "candidate",
+  "family": "non-native",
+  "version": null,
+  "tag": null,
+  "release": 0,
+  "assets": {},
+  "copr_builds": [],
+  "published_at": null
+}

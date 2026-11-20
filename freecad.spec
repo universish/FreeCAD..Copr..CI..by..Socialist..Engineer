@@ -10,7 +10,18 @@
 #   0001 — (за потреби) сумісність із системними версіями бібліотек
 #   (boost 1.90, pyside 6.11, coin 4.0.10 тощо)
 
-Name:           freecad
+%{!?fc_package:%global fc_package freecad}
+%{!?fc_command:%global fc_command freecad}
+%{!?fc_cmd_command:%global fc_cmd_command freecadcmd}
+%{!?fc_thumbnail_command:%global fc_thumbnail_command freecad-thumbnailer}
+%{!?fc_app_id:%global fc_app_id org.freecad.FreeCAD}
+%{!?fc_icon_name:%global fc_icon_name org.freecad.FreeCAD}
+%{!?fc_desktop_file:%global fc_desktop_file org.freecad.FreeCAD.desktop}
+%{!?fc_metainfo_file:%global fc_metainfo_file org.freecad.FreeCAD.metainfo.xml}
+%{!?fc_mime_file:%global fc_mime_file org.freecad.FreeCAD.xml}
+%{!?fc_thumbnail_file:%global fc_thumbnail_file FreeCAD.thumbnailer}
+%{!?fc_shared_mime_icon_owner:%global fc_shared_mime_icon_owner 1}
+Name:           %{fc_package}
 Epoch:          1
 Version:        @VERSION@
 Release:        @RELEASE@%{?dist}
@@ -18,7 +29,7 @@ Summary:        A 3D parametric modeler
 
 License:        LGPL-2.1-or-later AND Zlib AND BSD-3-Clause AND Apache-2.0 AND EUPL-1.2 AND BSL-1.0 AND MIT AND GPL-2.0-or-later AND CC-BY-SA-4.0
 URL:            https://www.freecad.org/
-Source0:        https://github.com/FreeCAD/FreeCAD/releases/download/%{version}/freecad_source_%{version}.tar.gz
+Source0:        freecad-sources.tar.gz
 Source1:        README.md
 
 # Патчі (додаються по мірі необхідності під час збірки)
@@ -45,10 +56,17 @@ BuildRequires:  patch
 BuildRequires:  pkgconfig
 BuildRequires:  python3-devel
 BuildRequires:  swig
-BuildRequires:  git
 BuildRequires:  desktop-file-utils
-BuildRequires:  libappstream-glib
 BuildRequires:  dos2unix
+%if 0%{?fedora}
+# Upstream's current Fedora package profile needs these additional build tools.
+BuildRequires:  doxygen
+BuildRequires:  gettext
+BuildRequires:  graphviz
+BuildRequires:  libappstream-glib
+BuildRequires:  strace
+BuildRequires:  tbb-devel
+%endif
 
 # ── Системні devel-пакети (з них беруться бібліотеки) ──────────────────────
 # Coin3D (Coin4 4.0.10 на Fedora 44/45)
@@ -64,7 +82,11 @@ BuildRequires:  boost-devel
 # Eigen3
 BuildRequires:  eigen3-devel
 # pybind11
+%if 0%{?fedora}
+BuildRequires:  python3-pybind11
+%else
 BuildRequires:  pybind11-devel
+%endif
 # PyCXX
 BuildRequires:  python3-pycxx-devel
 # PySide6 / Shiboken6
@@ -117,6 +139,16 @@ BuildRequires:  freetype-devel
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qttools-devel
+%if 0%{?fedora}
+# Additional Fedora libraries and tools required by current FreeCAD sources.
+BuildRequires:  freeimage-devel
+BuildRequires:  libglvnd-devel
+BuildRequires:  libXmu-devel
+BuildRequires:  mesa-libEGL-devel
+BuildRequires:  pyside6-tools
+BuildRequires:  python3-lark
+BuildRequires:  qt6-qttools-static
+%endif
 
 # ── Runtime Requires (головні динамічні залежності; точні обирає rpm auto-deps)
 # ────────────────────────────────────────────────────────────────────────────
@@ -125,6 +157,14 @@ Requires:       python3-pivy
 Requires:       python3-matplotlib
 Requires:       hicolor-icon-theme
 Requires:       shared-mime-info
+%if 0%{?fedora}
+Requires:       python3-collada
+Requires:       python3-defusedxml
+Requires:       python3-ply
+Requires:       python3-pyside6
+Requires:       python3-typing-extensions
+Requires:       qt6-assistant
+%endif
 
 # Bundled libraries (для rpmlint / transparency)
 Provides:       bundled(zipios++) = 0.1.5.9
@@ -137,7 +177,7 @@ ExcludeArch:    %{ix86}
 ExcludeArch:    s390x
 
 # Сховати внутрішні бібліотеки від автозалежностей
-%global __provides_exclude_from ^%{_libdir}/freecad/.*$
+%global __provides_exclude_from ^%{_libdir}/%{name}/.*$
 %global __requires_exclude ^(lib(Driver(|DAT|STL|UNV)|FreeCAD(App|Base|Gui)|MEFISTO2|SMDS|SMESH|SMESHDS|StdMeshers|area-native)[.]so.*)$
 
 %description
@@ -146,12 +186,12 @@ modeling tool used to create objects ranging from simple designs to complex
 projects consisting of extensive assemblies of numerous parts.
 
 %package data
-Summary:        Data files for package freecad
+Summary:        Data files for package %{name}
 License:        LGPL-2.1-or-later AND GPL-2.0-or-later AND CC-BY-3.0 AND CC-BY-4.0 AND CC-BY-SA-4.0
 BuildArch:      noarch
 
 %description data
-This package provides data files for package freecad.
+This package provides data files for package %{name}.
 
 # ────────────────────────────────────────────────────────────────────────────
 %prep
@@ -172,9 +212,6 @@ rm -rf \
   src/3rdParty/OndselSolver \
   src/3rdParty/libE57Format \
   tests/lib \
-  src/3rdParty/3Dconnexion \
-  src/3rdParty/OpenGL \
-  src/3rdParty/lru-cache \
   src/3rdParty/GSL
 
 # SMESH та zipios++ залишаємо (системні версії несумісні / відсутні)
@@ -186,26 +223,24 @@ export CMAKE_BUILD_PARALLEL_LEVEL=%{?_smp_mflags:2}%{!?_smp_mflags:2}
 export CMAKE_POLICY_VERSION_MINIMUM=3.5
 
 %cmake \
-  -DCMAKE_INSTALL_PREFIX=%{_libdir}/freecad \
-  -DCMAKE_INSTALL_BINDIR=%{_libdir}/freecad/bin \
-  -DCMAKE_INSTALL_LIBDIR=%{_libdir}/freecad \
+  -DCMAKE_INSTALL_PREFIX=%{_libdir}/%{name} \
+  -DCMAKE_INSTALL_BINDIR=%{_libdir}/%{name}/bin \
+  -DCMAKE_INSTALL_LIBDIR=%{_libdir}/%{name} \
   -DCMAKE_INSTALL_DATAROOTDIR=%{_datadir} \
-  -DCMAKE_INSTALL_DATADIR=../../share/freecad \
+  -DCMAKE_INSTALL_DATADIR=../../share/%{name} \
   -DFREECAD_USE_EXTERNAL_ZIPIOS=OFF \
   -DFREECAD_USE_EXTERNAL_SMESH=OFF \
   -DFREECAD_USE_EXTERNAL_KDL=ON \
-  -DFREECAD_USE_EXTERNAL_FMT=ON \
   -DFREECAD_USE_EXTERNAL_ONDSELSOLVER=ON \
   -DFREECAD_USE_EXTERNAL_E57FORMAT=ON \
-  -DFREECAD_USE_EXTERNAL_GTEST=ON \
   -DFREECAD_USE_EXTERNAL_PYCXX=ON \
   -DFREECAD_USE_EXTERNAL_KDTREE=ON \
   -DFREECAD_USE_EXTERNAL_JSON=ON \
+  -DFREECAD_USE_EXTERNAL_COIN_PIVY=ON \
   -DFREECAD_CHECK_PIVY=ON \
+  -DFREECAD_VERSION_INCLUDE_GIT=OFF \
   -DBUILD_GUI=ON \
   -DBUILD_FEM_NETGEN=OFF \
-  -DBUILD_ENABLE_CXX_STD=C++17 \
-  -DCMAKE_CXX_STANDARD=17 \
   -Wno-dev
 
 %cmake_build
@@ -214,33 +249,107 @@ export CMAKE_POLICY_VERSION_MINIMUM=3.5
 %install
 %cmake_install
 
+# Keep Python modules under this package's private prefix so stable and
+# candidate installations can coexist.
+mkdir -p %{buildroot}%{_libdir}/%{name}/python
+if [ -d %{buildroot}%{python3_sitelib}/freecad ]; then
+  mv %{buildroot}%{python3_sitelib}/freecad %{buildroot}%{_libdir}/%{name}/python/
+fi
+
 # Прибираємо лишню документацію
 rm -f %{buildroot}%{_docdir}/FreeCAD/LICENSE.html
 rm -f %{buildroot}%{_docdir}/FreeCAD/ThirdPartyLibraries.html
 rmdir %{buildroot}%{_docdir}/FreeCAD 2>/dev/null || true
 
-# Симлінки у /usr/bin
+# Package-specific launchers avoid file collisions between release channels.
 mkdir -p %{buildroot}%{_bindir}
-ln -sr %{buildroot}%{_libdir}/freecad/bin/FreeCAD %{buildroot}%{_bindir}/freecad
-ln -sr %{buildroot}%{_libdir}/freecad/bin/FreeCAD %{buildroot}%{_bindir}/FreeCAD
-ln -sr %{buildroot}%{_libdir}/freecad/bin/FreeCADCmd %{buildroot}%{_bindir}/freecadcmd
-ln -sr %{buildroot}%{_libdir}/freecad/bin/FreeCADCmd %{buildroot}%{_bindir}/FreeCADCmd
-ln -sr %{buildroot}%{_libdir}/freecad/bin/freecad-thumbnailer %{buildroot}%{_bindir}/freecad-thumbnailer
+cat > %{buildroot}%{_bindir}/%{fc_command} <<EOF
+#!/bin/sh
+export PYTHONPATH="%{_libdir}/%{name}/python\${PYTHONPATH:+:\$PYTHONPATH}"
+export XDG_CONFIG_HOME="\${XDG_CONFIG_HOME:-\$HOME/.config}/%{name}"
+export XDG_DATA_HOME="\${XDG_DATA_HOME:-\$HOME/.local/share}/%{name}"
+export FREECAD_USER_HOME="\$XDG_DATA_HOME"
+mkdir -p "\$FREECAD_USER_HOME"
+exec %{_libdir}/%{name}/bin/FreeCAD "\$@"
+EOF
+cat > %{buildroot}%{_bindir}/%{fc_cmd_command} <<EOF
+#!/bin/sh
+export PYTHONPATH="%{_libdir}/%{name}/python\${PYTHONPATH:+:\$PYTHONPATH}"
+export XDG_CONFIG_HOME="\${XDG_CONFIG_HOME:-\$HOME/.config}/%{name}"
+export XDG_DATA_HOME="\${XDG_DATA_HOME:-\$HOME/.local/share}/%{name}"
+export FREECAD_USER_HOME="\$XDG_DATA_HOME"
+mkdir -p "\$FREECAD_USER_HOME"
+exec %{_libdir}/%{name}/bin/FreeCADCmd "\$@"
+EOF
+chmod 0755 %{buildroot}%{_bindir}/%{fc_command} %{buildroot}%{_bindir}/%{fc_cmd_command}
+ln -sr %{buildroot}%{_libdir}/%{name}/bin/freecad-thumbnailer %{buildroot}%{_bindir}/%{fc_thumbnail_command}
 
 # Python byte-compile
-%py_byte_compile %{python3} %{buildroot}%{_libdir}/freecad/
+%py_byte_compile %{python3} %{buildroot}%{_libdir}/%{name}/
+
+# Give shared desktop and MIME files this package's own IDs and launcher.
+desktop_file=$(find %{buildroot}%{_datadir}/applications -maxdepth 1 -type f -name 'org.freecad.FreeCAD.desktop' -print -quit)
+test -n "$desktop_file"
+mv "$desktop_file" "%{buildroot}%{_datadir}/applications/%{fc_desktop_file}"
+sed -i \
+  -e 's/^Exec=.*/Exec=%{fc_command} %F/' \
+  -e 's/^TryExec=.*/TryExec=%{fc_command}/' \
+  -e 's/^Icon=.*/Icon=%{fc_icon_name}/' \
+  -e 's/^Name=.*/Name=%{name}/' \
+  "%{buildroot}%{_datadir}/applications/%{fc_desktop_file}"
+desktop-file-validate "%{buildroot}%{_datadir}/applications/%{fc_desktop_file}"
+
+metainfo_file=$(find %{buildroot}%{_metainfodir} -maxdepth 1 -type f -name 'org.freecad.FreeCAD.metainfo.xml' -print -quit)
+test -n "$metainfo_file"
+mv "$metainfo_file" "%{buildroot}%{_metainfodir}/%{fc_metainfo_file}"
+sed -i 's/org\.freecad\.FreeCAD/%{fc_app_id}/g' "%{buildroot}%{_metainfodir}/%{fc_metainfo_file}"
+
+icon_list=$(mktemp)
+find %{buildroot}%{_datadir}/icons/hicolor -type f -name 'org.freecad.FreeCAD*' -print > "$icon_list"
+test -s "$icon_list"
+while IFS= read -r icon_file; do
+  icon_dir=$(dirname "$icon_file")
+  icon_base=$(basename "$icon_file")
+  icon_new=$(printf '%s' "$icon_base" | sed 's/org\.freecad\.FreeCAD/%{fc_icon_name}/g')
+  mv "$icon_file" "$icon_dir/$icon_new"
+done < "$icon_list"
+rm -f "$icon_list"
+
+mime_file=$(find %{buildroot}%{_datadir}/mime/packages -maxdepth 1 -type f -name 'org.freecad.FreeCAD.xml' -print -quit)
+if [ -n "$mime_file" ]; then
+  mv "$mime_file" "%{buildroot}%{_datadir}/mime/packages/%{fc_mime_file}"
+  sed -i 's/org\.freecad\.FreeCAD/%{fc_app_id}/g' "%{buildroot}%{_datadir}/mime/packages/%{fc_mime_file}"
+fi
+
+thumbnailer_file=$(find %{buildroot}%{_datadir}/thumbnailers -maxdepth 1 -type f -name 'FreeCAD.thumbnailer' -print -quit)
+if [ -n "$thumbnailer_file" ]; then
+  mv "$thumbnailer_file" "%{buildroot}%{_datadir}/thumbnailers/%{fc_thumbnail_file}"
+  sed -i 's/^Exec=.*/Exec=%{fc_thumbnail_command} %i %o/' "%{buildroot}%{_datadir}/thumbnailers/%{fc_thumbnail_file}"
+fi
+
+pixmap_file=%{buildroot}%{_datadir}/pixmaps/freecad.svg
+if [ -f "$pixmap_file" ]; then
+  mv "$pixmap_file" "%{buildroot}%{_datadir}/pixmaps/freecad-%{name}.svg"
+fi
 
 # ────────────────────────────────────────────────────────────────────────────
 %check
 %if %{with tests}
 export QT_QPA_PLATFORM=offscreen
 %ctest
-desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
-appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
+%endif
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{fc_desktop_file}
+%if 0%{?fedora}
+appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{fc_metainfo_file}
 %endif
 
 # ────────────────────────────────────────────────────────────────────────────
 %post
+for other_package in freecad freecad-candidate freecad-non-native freecad-candidate-non-native; do
+  if [ "$other_package" != "%{name}" ] && rpm -q "$other_package" >/dev/null 2>&1; then
+    echo "FreeCAD package $other_package is also installed; this package keeps a separate launcher and user configuration." >&2
+  fi
+done
 /usr/bin/update-desktop-database %{_datadir}/applications &>/dev/null ||:
 /usr/bin/gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor &>/dev/null ||:
 
@@ -252,29 +361,28 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
 %files
 %license LICENSE
 %doc README.md
-%{_bindir}/freecad
-%{_bindir}/FreeCAD
-%{_bindir}/freecadcmd
-%{_bindir}/FreeCADCmd
-%{_bindir}/freecad-thumbnailer
-%{_libdir}/freecad/
-%{python3_sitelib}/freecad/
-%{_datadir}/applications/org.freecad.FreeCAD.desktop
-%{_datadir}/icons/hicolor/*/apps/org.freecad.FreeCAD.*
+%{_bindir}/%{fc_command}
+%{_bindir}/%{fc_cmd_command}
+%{_bindir}/%{fc_thumbnail_command}
+%{_libdir}/%{name}/
+%{_datadir}/applications/%{fc_desktop_file}
+%{_datadir}/icons/hicolor/*/apps/%{fc_icon_name}.*
+%if %{fc_shared_mime_icon_owner}
 %{_datadir}/icons/hicolor/scalable/mimetypes/application-x-extension-fcstd.svg
-%{_metainfodir}/org.freecad.FreeCAD.metainfo.xml
-%{_datadir}/mime/packages/org.freecad.FreeCAD.xml
-%{_datadir}/pixmaps/freecad.svg
-%{_datadir}/thumbnailers/FreeCAD.thumbnailer
+%endif
+%{_metainfodir}/%{fc_metainfo_file}
+%{_datadir}/mime/packages/%{fc_mime_file}
+%{_datadir}/pixmaps/freecad-%{name}.svg
+%{_datadir}/thumbnailers/%{fc_thumbnail_file}
 %dir %{_datadir}/thumbnailers
 
 %files data
 %license LICENSE
-%{_datadir}/freecad/
+%{_datadir}/%{name}/
 
 # ────────────────────────────────────────────────────────────────────────────
 %changelog
-* Sun Oct 17 2026 FreeCAD RPM Packager <freecad@copr.fedorainfracloud.org> - @VERSION@-@RELEASE@
+* Sat Oct 17 2026 FreeCAD RPM Packager <freecad@copr.fedorainfracloud.org> - @VERSION@-@RELEASE@
 - Initial packaging of FreeCAD 1.1.4 for Fedora 44/45 (COPR)
 - System libraries: Coin4, OpenCASCADE, VTK, Boost, Eigen3, PySide6, Pivy, fmt, yaml-cpp, nlohmann_json, GSL, OndselSolver, libE57Format, libkdtree++, orocos-kdl, MEDFile, Xerces-C, ICU, OpenMPI, HDF5, gtest/gmock
 - Bundled: SMESH, zipios++, lru-cache, 3Dconnexion

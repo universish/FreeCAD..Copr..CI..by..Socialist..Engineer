@@ -1,0 +1,37 @@
+[
+  {
+    "tag_name": "weekly-2026.11.18",
+    "name": "Development Build weekly-2026.11.18",
+    "prerelease": true,
+    "published_at": "2026-11-18T00:30:00Z",
+    "assets": [
+      {"name": "FreeCAD_weekly-2026.11.18-Linux-x86_64.AppImage", "browser_download_url": "https://example.invalid/weekly-2026.11.18-x86_64.AppImage"}
+    ]
+  },
+  {
+    "tag_name": "26.3rc2",
+    "name": "FreeCAD 26.3 Release Candidate 2",
+    "prerelease": true,
+    "html_url": "https://github.com/FreeCAD/FreeCAD/releases/tag/26.3rc2",
+    "published_at": "2026-10-18T06:44:00Z",
+    "assets": [
+      {"name": "FreeCAD_26.3rc2-Linux-x86_64.AppImage", "browser_download_url": "https://example.invalid/FreeCAD_26.3rc2-Linux-x86_64.AppImage", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "size": 100},
+      {"name": "FreeCAD_26.3rc2-Linux-x86_64.AppImage-SHA256.txt", "browser_download_url": "https://example.invalid/sha-x86"},
+      {"name": "FreeCAD_26.3rc2-Linux-aarch64-py311.AppImage", "browser_download_url": "https://example.invalid/FreeCAD_26.3rc2-Linux-aarch64-py311.AppImage", "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "size": 200},
+      {"name": "FreeCAD_26.3rc2-Linux-aarch64-py311.AppImage-SHA256.txt", "browser_download_url": "https://example.invalid/sha-arm"}
+    ]
+  },
+  {
+    "tag_name": "1.1.4",
+    "name": "FreeCAD 1.1.4",
+    "prerelease": false,
+    "html_url": "https://github.com/FreeCAD/FreeCAD/releases/tag/1.1.4",
+    "published_at": "2026-10-01T00:00:00Z",
+    "assets": [
+      {"name": "FreeCAD_1.1.4-Linux-x86_64.rpm", "browser_download_url": "https://example.invalid/FreeCAD_1.1.4-Linux-x86_64.rpm"},
+      {"name": "FreeCAD_1.1.4-Linux-x86_64.deb", "browser_download_url": "https://example.invalid/FreeCAD_1.1.4-Linux-x86_64.deb"},
+      {"name": "FreeCAD_1.1.4-Linux-x86_64.AppImage", "browser_download_url": "https://example.invalid/FreeCAD_1.1.4-Linux-x86_64.AppImage"},
+      {"name": "FreeCAD_1.1.4-Linux-aarch64.rpm", "browser_download_url": "https://example.invalid/FreeCAD_1.1.4-Linux-aarch64.rpm"}
+    ]
+  }
+]

@@ -1,5 +1,7 @@
 # FreeCAD Copr RPM Automation
 
+This repository is a fork of [MidnightRAT/FreeCAD-rpm](https://github.com/MidnightRAT/FreeCAD-rpm).
+
 This repository builds and publishes stable and prerelease FreeCAD packages for x86_64 and aarch64. The native family compiles the upstream source against distribution libraries. The non-native family repackages the first available upstream Linux artifact in RPM → DEB → AppImage priority order.
 
 ## Packages
