@@ -336,8 +336,8 @@ Automatically:
 
 ### COPR
 
-Automatically builds for Fedora 44/45 from the latest main branch:
-- [COPR Project Page](https://copr.fedorainfracloud.org/coprs/chirikrat/FreeCAD-rpm/)
+Automatically builds for openEuler 24.03 & Fedora 44/45/rawhide & openSUSE from the latest main branch:
+- [COPR Project Page](https://copr.fedorainfracloud.org/coprs/universish/FreeCAD../)
 
 **Note:** Workflows do not trigger on changes to README.md or `.copr/**`.
 
