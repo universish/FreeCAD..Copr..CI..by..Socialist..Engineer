@@ -22,3 +22,9 @@ rpmbuild/
 # OS
 .DS_Store
 Thumbs.db
+
+# examples/
+archive/
+archives/
+bagimliliklar.txt
+
